@@ -162,14 +162,14 @@ cancelada    → (final)
 | Uso | Biblioteca | Observação |
 |---|---|---|
 | Estilo | Tailwind CSS | |
-| Componentes | **shadcn/ui** (sobre Radix UI) | Código dos componentes fica no projeto (`src/components/ui/`); só visual, sem Supabase |
+| Componentes | **shadcn/ui** (sobre Radix UI, estilo **Vega**) | Código dos componentes fica no projeto (`src/components/ui/`); só visual, sem Supabase. Formulários usam o componente `field` com React Hook Form |
 | Ícones | lucide-react | |
 | Tabelas e listas | TanStack Table | Filtros, ordenação e paginação |
 | Datas | date-fns (pt-BR) + calendário do shadcn | |
 | Agenda | FullCalendar (versão gratuita) ou Schedule-X | Visões diária e semanal, arrastar para reagendar |
 | Avisos | sonner | |
 | Gráficos (fase 2) | Recharts via shadcn charts | |
-| Fonte | Inter ou Geist | |
+| Fonte | Inter (`@fontsource-variable/inter`) | |
 
 **Escritório (desktop) — admin e gestor**
 - Menu lateral: Painel, Ordens, Agenda, Clientes, Equipamentos, Configurações
@@ -367,6 +367,8 @@ Configurar o ESLint para bloquear importações do Supabase fora da pasta permit
 | PDF | `@react-pdf/renderer` | Relatório montado com componentes React |
 | Assinatura | `react-signature-canvas` | Captura na tela do celular |
 | Fila de fotos | IndexedDB (lib `idb`) | Guarda e reenvia quando o sinal voltar |
+| Testes | Vitest + Testing Library | Unitários, telas e testes de acesso (RLS) |
+| Qualidade | ESLint + Prettier + Husky/lint-staged | Verificação automática antes de cada commit |
 | Hospedagem | Vercel ou Netlify + Supabase (região São Paulo) + GitHub | Dados no Brasil ajudam na LGPD |
 
 **Para depois do MVP:** cobrança recorrente (Asaas ou Mercado Pago), WhatsApp (API oficial da Meta ou provedor como Z-API), app nativo (React Native + Expo).
@@ -417,6 +419,9 @@ src/
 supabase/
   migrations/                ← SQL versionado
   functions/                 ← Edge Functions (finas, chamam domain/)
+docs/
+  pdf/                       ← mockups, roteiro de entrevista e materiais de referência
+  imagens/                   ← identidade visual (logos)
 ```
 
 ---
@@ -566,14 +571,20 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, o MVP pode ir para o p
 
 ### Checklist da etapa 0
 
-- [ ] Criar projeto com Vite + React + TypeScript + Tailwind
-- [ ] Ativar `strict: true` no `tsconfig` (regra 13 da seção 7)
-- [ ] Configurar alias `@/` para `src/`
-- [ ] Criar a estrutura de pastas da seção 9
-- [ ] Configurar ESLint com `typescript-eslint` e `no-restricted-imports` (seção 7)
-- [ ] Configurar Prettier e verificação automática antes de cada commit (ex.: Husky + lint-staged)
-- [ ] Instalar e inicializar Supabase CLI; primeira migration com `organizacoes`, `usuarios`, `organizacao_usuarios`
-- [ ] Criar `.gitignore` com `.env` e ativar o Dependabot no GitHub
+- [x] Criar projeto com Vite + React + TypeScript + Tailwind
+- [x] Ativar `strict: true` no `tsconfig` (regra 13 da seção 7)
+- [x] Configurar alias `@/` para `src/`
+- [x] Criar a estrutura de pastas da seção 9
+- [x] Configurar ESLint com `typescript-eslint` e `no-restricted-imports` (seção 7)
+- [x] Configurar Prettier e verificação automática antes de cada commit (Husky + lint-staged)
+- [x] Instalar shadcn/ui (Radix + estilo Vega) e as bibliotecas da seção 8
+- [x] Configurar Vitest + Testing Library e PWA (`vite-plugin-pwa`)
+- [x] Instalar e inicializar Supabase CLI (`supabase/config.toml`)
+- [ ] Criar o projeto no Supabase (região São Paulo), `supabase link` e preencher `.env.local` a partir do `.env.example`
+- [ ] Primeira migration com `organizacoes`, `usuarios`, `organizacao_usuarios`
+- [x] Criar `.gitignore` com `.env`
+- [ ] Ativar o Dependabot no GitHub
+- [ ] Ícones do PWA (192, 512 e maskable) exportados do logo
 - [ ] Políticas RLS com `USING` e `WITH CHECK`, permissões por papel (seção 11) e testes de acesso cruzado entre empresas e entre papéis
 - [ ] Configurar Supabase Auth: confirmação de e-mail, senha mínima e limite de tentativas
 - [ ] `AuthProvider` (interface) + implementação Supabase + `authService`
