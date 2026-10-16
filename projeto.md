@@ -228,7 +228,7 @@ Interfaces (data/repositories/) ← contratos: OrdemRepository, ClienteRepositor
 9. **No banco, salvar o caminho do arquivo, nunca a URL completa.** Ex.: `org-12/os-345/foto1.jpg`.
 10. **Edge Functions finas:** apenas recebem a requisição, validam e chamam funções do `domain`. Assim viram rotas Node com pouco esforço.
 11. **Não depender de recursos exclusivos do Supabase** sem embrulhá-los (ex.: Realtime, se usado, fica atrás de uma interface).
-12. **Evitar lógica de negócio complexa em funções SQL.** RLS e constraints sim; regras de negócio ficam em TypeScript.
+12. **Evitar lógica de negócio complexa em funções SQL.** RLS e constraints sim; regras de negócio ficam em TypeScript. Operações sensíveis (ex.: mudança de status) rodam numa Edge Function que reutiliza o `domain` (ver seção 11).
 13. **TypeScript limpo e fácil de entender.** O código deve ser lido por qualquer pessoa do projeto sem esforço:
    - `strict: true` no `tsconfig`; proibido `any` (usar `unknown` + validação com Zod quando o tipo for incerto).
    - Nomes claros e em português para o domínio (`concluirOrdem`, `proximaManutencao`), sem abreviações obscuras.
@@ -311,6 +311,8 @@ export async function concluirOrdem(id: string) {
   if (!podeTransitar(ordem.status, 'concluida')) {
     throw new Error(`Não é possível concluir uma OS com status ${ordem.status}`);
   }
+  // A checagem aqui é para dar retorno rápido na tela; a garantia real
+  // fica na Edge Function chamada por alterarStatus (ver seção 11).
   return ordemRepository.alterarStatus(id, 'concluida');
 }
 ```
@@ -461,14 +463,76 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 
 ## 11. Segurança
 
+> **Princípio:** o navegador não é confiável. Qualquer usuário logado pode chamar o Supabase diretamente, sem passar pelas telas. Toda regra que protege dados ou o fluxo da OS precisa valer **no servidor** (banco ou Edge Function), não só no frontend.
+
+### Isolamento entre empresas
+
 - Toda tabela de negócio vinculada a uma organização, com **Row Level Security** habilitado.
+- **RLS é obrigatória enquanto o navegador falar direto com o Supabase:** sem ela, qualquer usuário logado (ou anônimo, com a chave `anon`) lê os dados de todas as empresas pela API.
+- Tabelas criadas por migration **não** vêm com RLS ligada: toda migration que cria tabela inclui `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` e suas políticas. Tabela com RLS ligada e sem política fica bloqueada para todos.
+- Conferir o **Security Advisor** do painel do Supabase a cada entrega (aponta tabelas expostas sem RLS).
+- Políticas com `USING` (o que pode ler) **e** `WITH CHECK` (o que pode gravar): o `organizacao_id` enviado pelo cliente nunca é aceito sem conferir que o usuário pertence àquela organização.
+- Validar relações: cliente, local, equipamento e OS devem pertencer à mesma organização (constraints).
 - **Testes de acesso cruzado:** um usuário da empresa A nunca lê nem altera dados da empresa B.
-- Validar relações: cliente, local, equipamento e OS devem pertencer à mesma organização.
-- Nenhuma chave secreta (IA ou `service_role`) no código do navegador.
+
+### Permissões por papel
+
+As permissões da seção 5 são garantidas **no RLS**, não só escondendo botões na tela:
+
+| Papel | Ordens de serviço | Cadastros (clientes, locais, equipamentos) | Usuários e configurações |
+|---|---|---|---|
+| `admin` | Todas da organização | Ler e alterar | Ler e alterar |
+| `gestor` | Todas da organização | Ler e alterar | Sem acesso |
+| `tecnico` | Somente as atribuídas a ele | Somente leitura | Sem acesso |
+
+- Testes automatizados também para papéis: um técnico não lê OS de outro técnico nem altera cadastros.
+
+### Operações sensíveis no servidor
+
+- Mudança de status, conclusão, cancelamento e assinatura passam por uma **Edge Function** que reutiliza `src/domain/ordem/transicoes.ts`, confere organização e papel do usuário e grava o evento em `ordem_servico_eventos`.
+- O usuário comum **não pode alterar a coluna `status` diretamente** (permissão de coluna no banco); só a Edge Function altera.
+- OS `concluida` ou `cancelada` não pode mais ser editada; a assinatura não pode ser trocada depois de registrada.
+- Isso respeita a regra 12 da seção 7: o banco só bloqueia; a regra de negócio continua em TypeScript.
+
+### Autenticação
+
+- Confirmação de e-mail obrigatória e senha com no mínimo 8 caracteres.
+- Limite de tentativas de login e de recuperação de senha (configuração do Supabase Auth).
+- Autenticação em dois fatores (MFA) recomendada para `admin`; obrigatória a partir da fase SaaS.
+- Usuário removido de uma organização perde o acesso imediatamente (vínculo em `organizacao_usuarios` desativado).
+
+### Chaves e segredos
+
+- Nenhuma chave secreta (IA ou `service_role`) no código do navegador nem no repositório.
+- A chave `anon` do Supabase é pública por design; quem protege os dados é o RLS.
+- Arquivos `.env` no `.gitignore`; segredos das Edge Functions configurados no painel/CLI do Supabase.
+- Edge Functions que usam `service_role` (ignora o RLS) **sempre** conferem organização e papel do usuário antes de gravar.
+
+### Arquivos (fotos, assinaturas e PDFs)
+
 - Buckets do Storage privados, com políticas por organização.
-- Backup e trilha de alterações (`ordem_servico_eventos`).
+- Acesso por **URLs assinadas com validade curta** (ex.: 1 hora); nunca URLs públicas.
+- Aceitar apenas imagens e PDF, com limite de tamanho por arquivo.
+- **Fila de fotos no celular (IndexedDB):** apagar as fotos da fila após o envio e ao sair da conta.
+
+### Backup e auditoria
+
+- Backup diário do banco (plano do Supabase com backup automático ou `pg_dump` agendado) e **teste de restauração** antes do piloto.
+- Trilha de alterações em `ordem_servico_eventos` (quem, quando, o quê).
 - Funcionamento offline, se houver, desenhado e testado explicitamente.
-- **Ambiente hospitalar:** fotografar apenas equipamentos e instalações, nunca pacientes, prontuários, telas ou documentos. Dados do contratante são confidenciais (LGPD).
+
+### LGPD e privacidade
+
+- Dados hospedados no Brasil (Supabase região São Paulo).
+- **Ambiente hospitalar:** fotografar apenas equipamentos e instalações, nunca pacientes, prontuários, telas ou documentos. Dados do contratante são confidenciais.
+- Termos de uso e política de privacidade antes do primeiro cliente pagante.
+- Informar que mensagens coladas para a IA são enviadas a um serviço externo (Claude API); orientar a não colar dados pessoais desnecessários.
+- Exportar e excluir todos os dados de uma organização quando ela encerrar a conta.
+
+### Repositório e dependências
+
+- Repositório privado, com **Dependabot** ativo para alertas de vulnerabilidade.
+- Atualizar dependências com regularidade e revisar alertas antes de cada entrega.
 
 ---
 
@@ -490,7 +554,7 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, o MVP pode ir para o p
 
 | Etapa | Entrega |
 |---|---|
-| 0. Fundação | Projeto Vite, estrutura de pastas, ESLint com a regra de importação, Supabase CLI, migrations, login, organizações, usuários, RLS testado |
+| 0. Fundação | Projeto Vite, estrutura de pastas, ESLint com a regra de importação, Supabase CLI, migrations, login, organizações, usuários, RLS e permissões por papel testadas, base de segurança da seção 11 |
 | 1. Cadastros | Clientes, locais e equipamentos |
 | 2. Abertura de OS | Formulário de abertura e lista com filtros |
 | 3. Planejamento | Agendamento, atribuição e agenda por técnico |
@@ -509,9 +573,12 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, o MVP pode ir para o p
 - [ ] Configurar ESLint com `typescript-eslint` e `no-restricted-imports` (seção 7)
 - [ ] Configurar Prettier e verificação automática antes de cada commit (ex.: Husky + lint-staged)
 - [ ] Instalar e inicializar Supabase CLI; primeira migration com `organizacoes`, `usuarios`, `organizacao_usuarios`
-- [ ] Políticas RLS e testes de acesso cruzado
+- [ ] Criar `.gitignore` com `.env` e ativar o Dependabot no GitHub
+- [ ] Políticas RLS com `USING` e `WITH CHECK`, permissões por papel (seção 11) e testes de acesso cruzado entre empresas e entre papéis
+- [ ] Configurar Supabase Auth: confirmação de e-mail, senha mínima e limite de tentativas
 - [ ] `AuthProvider` (interface) + implementação Supabase + `authService`
 - [ ] Telas de login e recuperação de senha usando só `authService`
+- [ ] Definir e testar backup e restauração do banco
 
 ---
 
@@ -584,7 +651,7 @@ A migração **não precisa ser de uma vez**. Caminho sugerido:
 | Banco de dados | Baixa | Postgres puro; `pg_dump` e restore |
 | Edge Functions | Baixa | Já em TypeScript e finas |
 | Fotos (Storage) | Baixa a média | Copiar arquivos e trocar o prefixo dos caminhos |
-| Regras de acesso (RLS) | Média | Podem continuar no Postgres ou ir para a API |
+| Regras de acesso (RLS) | Média | Podem continuar no Postgres ou ir para a API; com a API Node filtrando por organização e papel, a RLS deixa de ser obrigatória, mas é recomendado mantê-la como segunda camada |
 | Autenticação | Média | Usuários exportáveis; fluxo de login muda |
 | Front | **Baixa, se as regras da seção 7 forem seguidas** | Só `src/data/` muda |
 
