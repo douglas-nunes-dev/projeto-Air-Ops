@@ -1,6 +1,6 @@
-# Gestão Inteligente de Manutenção
+# AirOps — Gestão Inteligente de Manutenção
 
-Sistema web para prestadores de manutenção de **ar-condicionado e refrigeração**, começando por **Passos (MG) e região**.
+**AirOps** é o nome do sistema: uma plataforma web para prestadores de manutenção de **ar-condicionado e refrigeração**, começando por **Passos (MG) e região**.
 
 Este arquivo é a referência do projeto: escopo, decisões de arquitetura, modelo de dados e regras de desenvolvimento. As regras de arquitetura (seção 7) são **obrigatórias** e existem para permitir a migração futura do Supabase para um backend em **Node.js** sem reescrever o sistema.
 
@@ -30,7 +30,7 @@ Este arquivo é a referência do projeto: escopo, decisões de arquitetura, mode
 
 ## 1. Visão geral
 
-O sistema centraliza **clientes, locais, equipamentos, agenda, ordens de serviço (OS) e relatórios**, substituindo o controle espalhado em caderno, planilha e WhatsApp.
+O AirOps centraliza **clientes, locais, equipamentos, agenda, ordens de serviço (OS) e relatórios**, substituindo o controle espalhado em caderno, planilha e WhatsApp.
 
 **Público inicial**
 
@@ -229,6 +229,13 @@ Interfaces (data/repositories/) ← contratos: OrdemRepository, ClienteRepositor
 10. **Edge Functions finas:** apenas recebem a requisição, validam e chamam funções do `domain`. Assim viram rotas Node com pouco esforço.
 11. **Não depender de recursos exclusivos do Supabase** sem embrulhá-los (ex.: Realtime, se usado, fica atrás de uma interface).
 12. **Evitar lógica de negócio complexa em funções SQL.** RLS e constraints sim; regras de negócio ficam em TypeScript.
+13. **TypeScript limpo e fácil de entender.** O código deve ser lido por qualquer pessoa do projeto sem esforço:
+   - `strict: true` no `tsconfig`; proibido `any` (usar `unknown` + validação com Zod quando o tipo for incerto).
+   - Nomes claros e em português para o domínio (`concluirOrdem`, `proximaManutencao`), sem abreviações obscuras.
+   - Funções pequenas, com uma única responsabilidade e retorno antecipado (`if (!ordem) throw ...`) em vez de `if` aninhados.
+   - Preferir código simples e explícito a soluções "espertas"; evitar tipos genéricos complexos quando um tipo direto resolve.
+   - Comentários só para explicar o **porquê** de uma decisão, não o que o código já mostra.
+   - Formatação automática com **Prettier** e regras do **ESLint** (`typescript-eslint`) verificadas antes de cada commit.
 
 ### Exemplo
 
@@ -496,9 +503,11 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, o MVP pode ir para o p
 ### Checklist da etapa 0
 
 - [ ] Criar projeto com Vite + React + TypeScript + Tailwind
+- [ ] Ativar `strict: true` no `tsconfig` (regra 13 da seção 7)
 - [ ] Configurar alias `@/` para `src/`
 - [ ] Criar a estrutura de pastas da seção 9
-- [ ] Configurar ESLint com `no-restricted-imports` (seção 7)
+- [ ] Configurar ESLint com `typescript-eslint` e `no-restricted-imports` (seção 7)
+- [ ] Configurar Prettier e verificação automática antes de cada commit (ex.: Husky + lint-staged)
 - [ ] Instalar e inicializar Supabase CLI; primeira migration com `organizacoes`, `usuarios`, `organizacao_usuarios`
 - [ ] Políticas RLS e testes de acesso cruzado
 - [ ] `AuthProvider` (interface) + implementação Supabase + `authService`
