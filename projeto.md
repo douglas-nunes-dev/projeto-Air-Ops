@@ -491,6 +491,24 @@ Todo o TypeScript do app fica em `src/`. A única exceção são os testes do ba
 
 Para parar o app no terminal: `Ctrl + C`.
 
+### Trabalhar em dois computadores
+
+O projeto é desenvolvido em dois computadores (casa e trabalho), sincronizados pelo GitHub. O banco é um só, na nuvem do Supabase.
+
+**Versão do Node travada:** `engines` no `package.json` (Node 24), `.npmrc` com `engine-strict=true` (o `npm install` recusa outra versão) e `.nvmrc` (`nvm use` troca para a versão certa).
+
+**Uma vez em cada computador** (fica fora do Git):
+
+1. Instalar o Node 24 e clonar o repositório (ou `git pull` numa pasta já existente).
+2. `npm install`
+3. Criar o `.env.local` a partir do `.env.example`, com a URL e a chave `anon` (painel do Supabase → Project Settings → API).
+4. Só para comandos de nuvem (`db push`, `functions deploy`, `npm run db:tipos`): `npx supabase login` e `npx supabase link --project-ref <ref>`.
+
+**Rotina**
+
+- **Ao começar:** `git pull`. Se o `package-lock.json` mudou, o hook `post-merge` do Husky roda o `npm install` sozinho.
+- **Ao terminar:** commit e `git push`, para o outro computador receber o trabalho.
+
 ---
 
 ## 10. Modelo de dados

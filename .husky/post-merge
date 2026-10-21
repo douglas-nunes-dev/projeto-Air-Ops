@@ -1,0 +1,5 @@
+# Depois do git pull: se as dependências mudaram (no outro computador), instala aqui também.
+if git diff --name-only ORIG_HEAD HEAD | grep -q '^package-lock.json$'; then
+  echo "package-lock.json mudou: rodando npm install..."
+  npm install
+fi
