@@ -686,8 +686,8 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes
 | 4. Execução | Tela do técnico: diagnóstico, checklist, tempo, fotos com fila | ✅ Concluída |
 | 5. Conclusão | Assinatura, revisão, encerramento e PDF | ✅ Concluída |
 | 6. Histórico | Linha do tempo por equipamento e por cliente | ✅ Concluída |
-| 7. IA | Mensagem → rascunho de OS | ⏳ Próxima |
-| 8. Preventiva simples | Periodicidade e lista de vencimentos | |
+| 7. IA | Mensagem → rascunho de OS | ⏸️ Adiada (não é obrigatória para o piloto; custo estimado: menos de 1 centavo de real por mensagem com Claude Haiku 5.5) |
+| 8. Preventiva simples | Periodicidade e lista de vencimentos | ⏳ Próxima |
 
 ### Checklist da etapa 0
 
