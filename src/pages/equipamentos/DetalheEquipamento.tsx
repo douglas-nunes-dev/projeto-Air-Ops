@@ -9,6 +9,12 @@ import { InfoItem } from '@/components/pagina/InfoItem';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { HistoricoDoEquipamento } from '@/components/historico/LinhaDoTempo';
+import { cn } from '@/lib/utils';
+import {
+  descreverSituacao,
+  diaNoFuso,
+  situacaoDaPreventiva,
+} from '@/domain/equipamento/preventiva';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   formatarCapacidade,
@@ -144,7 +150,7 @@ export function DetalheEquipamento() {
                   {rotuloPeriodicidade(equipamento.periodicidadeDias)}
                 </InfoItem>
                 <InfoItem rotulo="Próxima manutenção">
-                  {formatarDataSimples(equipamento.proximaManutencao)}
+                  <SituacaoDaPreventiva equipamento={equipamento} />
                 </InfoItem>
               </dl>
             </CardContent>
@@ -188,5 +194,26 @@ export function DetalheEquipamento() {
         </div>
       </div>
     </>
+  );
+}
+
+/** Data da próxima preventiva e a situação (vencida, vencendo, em dia) — etapa 8. */
+function SituacaoDaPreventiva({ equipamento }: { equipamento: Equipamento }) {
+  const situacao = situacaoDaPreventiva(equipamento, diaNoFuso(new Date()));
+  if (situacao.tipo === 'sem_periodicidade') return null;
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      {formatarDataSimples(situacao.vencimento)}
+      <span
+        className={cn(
+          'text-xs',
+          situacao.tipo === 'vencida' && 'font-medium text-destructive',
+          situacao.tipo === 'vencendo' && 'text-amber-700 dark:text-amber-300',
+          situacao.tipo === 'em_dia' && 'text-muted-foreground',
+        )}
+      >
+        {descreverSituacao(situacao)}
+      </span>
+    </span>
   );
 }

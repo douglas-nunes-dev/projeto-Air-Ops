@@ -29,6 +29,7 @@ import { DetalheOrdem } from '@/pages/ordens/DetalheOrdem';
 import { EditarOrdem } from '@/pages/ordens/EditarOrdem';
 import { ListaOrdens } from '@/pages/ordens/ListaOrdens';
 import { NovaOrdem } from '@/pages/ordens/NovaOrdem';
+import { Preventivas } from '@/pages/preventivas/Preventivas';
 import { ROTA_REDEFINIR_SENHA } from '@/services/authService';
 
 // O calendário é pesado: só é baixado quando alguém abre a Agenda.
@@ -89,6 +90,7 @@ function App() {
             <Route path="/clientes/novo" element={<NovoCliente />} />
             <Route path="/clientes/:id" element={<DetalheCliente />} />
             <Route path="/clientes/:id/editar" element={<EditarCliente />} />
+            <Route path="/preventivas" element={<Preventivas />} />
             <Route path="/equipamentos" element={<ListaEquipamentos />} />
             <Route path="/equipamentos/novo" element={<NovoEquipamento />} />
             <Route path="/equipamentos/:id" element={<DetalheEquipamento />} />

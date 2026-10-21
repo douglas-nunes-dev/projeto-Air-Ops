@@ -16,7 +16,7 @@ const localA = 'd0000000-0000-4000-8000-00000000000a';
 const assinaturaId = 'a5500000-0000-4000-8000-000000000001';
 
 const REGISTRAR_STATUS = 'select registrar_mudanca_status($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)';
-const CONCLUIR = 'select registrar_conclusao($1, $2, $3, $4, $5, $6)';
+const CONCLUIR = "select registrar_conclusao($1, $2, $3, $4, $5, $6, '[]'::jsonb)";
 
 let banco: PGlite;
 let ordemId: string;

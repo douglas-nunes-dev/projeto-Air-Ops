@@ -58,7 +58,7 @@ async function concluir(
   ordem: (OrdemAtual & { organizacaoId: string }) | null,
   quemPede: Vinculo,
 ): Promise<Response> {
-  const [execucao, fotos, assinaturaEnviada] = ordem
+  const [execucao, fotos, assinaturaEnviada, dadosOrdem] = ordem
     ? await Promise.all([
         banco
           .from('ordem_servico_execucao')
@@ -72,8 +72,24 @@ async function concluir(
         'caminho' in pedido.assinatura
           ? banco.storage.from('anexos').exists(pedido.assinatura.caminho)
           : Promise.resolve({ data: false }),
+        // Etapa 8: tipo da OS e periodicidade dos equipamentos, para a próxima preventiva.
+        banco
+          .from('ordens_servico')
+          .select(
+            'tipo_servico, equipamentos:ordem_servico_equipamentos(equipamento:equipamentos!inner(id, periodicidade_dias))',
+          )
+          .eq('id', pedido.ordemId)
+          .maybeSingle(),
       ])
-    : [null, null, null];
+    : [null, null, null, null];
+
+  type LinhaEquipamento = { equipamento: { id: string; periodicidade_dias: number | null } };
+  const equipamentos = (
+    (dadosOrdem?.data?.equipamentos ?? []) as unknown as LinhaEquipamento[]
+  ).map(({ equipamento }) => ({
+    id: equipamento.id,
+    periodicidadeDias: equipamento.periodicidade_dias,
+  }));
 
   const decisao = decidirConclusao({
     pedido,
@@ -83,6 +99,9 @@ async function concluir(
     diagnostico: execucao?.data?.diagnostico ?? null,
     fotosEnviadas: fotos?.count ?? 0,
     assinaturaEnviada: assinaturaEnviada?.data === true,
+    tipoServico: dadosOrdem?.data?.tipo_servico ?? '',
+    equipamentos,
+    agora: new Date(),
   });
   if (!decisao.ok) {
     return erro(STATUS_HTTP[decisao.codigo], decisao.codigo, decisao.mensagem, decisao.campo);

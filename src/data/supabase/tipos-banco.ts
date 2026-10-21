@@ -810,6 +810,7 @@ export type Database = {
           p_motivo_sem_assinatura: string;
           p_nome_assinante: string;
           p_ordem_id: string;
+          p_proximas_manutencoes: Json;
           p_usuario_id: string;
         };
         Returns: undefined;

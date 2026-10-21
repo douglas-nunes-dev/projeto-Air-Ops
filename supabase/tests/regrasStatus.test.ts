@@ -269,6 +269,9 @@ describe('conclusão (etapa 5)', () => {
     diagnostico: 'Capacitor queimado, trocado',
     fotosEnviadas: 2,
     assinaturaEnviada: true,
+    tipoServico: 'corretiva',
+    equipamentos: [{ id: 'eq-1', periodicidadeDias: 30 }],
+    agora: new Date('2026-10-25T01:30:00Z'),
   };
 
   it('lerPedido: assinatura com nome e caminho, ou motivo de não haver', () => {
@@ -313,6 +316,31 @@ describe('conclusão (etapa 5)', () => {
         p_caminho_assinatura: caminho,
         p_motivo_sem_assinatura: null,
         p_descricao: 'Concluída. Assinada por Carla Souza',
+        // Corretiva não reinicia o ciclo da preventiva.
+        p_proximas_manutencoes: [],
+      },
+    });
+  });
+
+  it('preventiva: próxima = dia da conclusão em Brasília + periodicidade (etapa 8)', () => {
+    const decisao = decidirConclusao({
+      ...tudoPronto,
+      tipoServico: 'preventiva',
+      equipamentos: [
+        { id: 'eq-1', periodicidadeDias: 30 },
+        { id: 'eq-2', periodicidadeDias: 90 },
+        // Sem periodicidade: não entra.
+        { id: 'eq-3', periodicidadeDias: null },
+      ],
+    });
+    expect(decisao).toMatchObject({
+      ok: true,
+      gravacao: {
+        // 01:30 UTC de 25/10 ainda é 24/10 em Brasília.
+        p_proximas_manutencoes: [
+          { equipamento_id: 'eq-1', proxima_manutencao: '2026-11-23' },
+          { equipamento_id: 'eq-2', proxima_manutencao: '2027-01-22' },
+        ],
       },
     });
   });

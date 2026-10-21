@@ -10,6 +10,7 @@ import {
   NOME_ASSINANTE_MINIMO,
   pendenciasParaConcluir,
 } from '../../../src/domain/ordem/conclusao.ts';
+import { proximaAposConclusao } from '../../../src/domain/equipamento/preventiva.ts';
 import { podeTransitar, type StatusOrdem } from '../../../src/domain/ordem/transicoes.ts';
 
 export const FUSO_DA_EMPRESA = 'America/Sao_Paulo';
@@ -373,6 +374,8 @@ export type GravacaoConclusao = {
   p_caminho_assinatura: string | null;
   p_motivo_sem_assinatura: string | null;
   p_descricao: string;
+  /** Etapa 8: nova próxima manutenção dos equipamentos (só ao concluir uma preventiva). */
+  p_proximas_manutencoes: { equipamento_id: string; proxima_manutencao: string }[];
 };
 
 type ContextoConclusao = {
@@ -385,7 +388,27 @@ type ContextoConclusao = {
   fotosEnviadas: number;
   /** A imagem da assinatura foi mesmo enviada ao Storage. */
   assinaturaEnviada: boolean;
+  /** Tipo de serviço da OS: só a preventiva reinicia o ciclo dos equipamentos. */
+  tipoServico: string;
+  /** Equipamentos da OS e a periodicidade de cada um (null = sem preventiva programada). */
+  equipamentos: { id: string; periodicidadeDias: number | null }[];
+  agora: Date;
 };
+
+/** Etapa 8: concluir uma preventiva marca a próxima em "hoje + periodicidade". */
+function proximasManutencoes(contexto: ContextoConclusao) {
+  if (contexto.tipoServico !== 'preventiva') return [];
+  return contexto.equipamentos.flatMap(({ id, periodicidadeDias }) =>
+    periodicidadeDias
+      ? [
+          {
+            equipamento_id: id,
+            proxima_manutencao: proximaAposConclusao(contexto.agora, periodicidadeDias),
+          },
+        ]
+      : [],
+  );
+}
 
 /**
  * Conclusão (etapa 5): só o técnico da OS, com ela em execução, diagnóstico preenchido,
@@ -442,6 +465,7 @@ export function decidirConclusao(
       p_motivo_sem_assinatura:
         'motivoSemAssinatura' in assinatura ? assinatura.motivoSemAssinatura : null,
       p_descricao: descreverConclusao(assinatura),
+      p_proximas_manutencoes: proximasManutencoes(contexto),
     },
   };
 }

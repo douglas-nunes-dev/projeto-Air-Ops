@@ -174,7 +174,7 @@ cancelada    → (final)
 | Cores | Azul da marca (`--primary`) e menu lateral azul-escuro | Definidas em `src/index.css` |
 
 **Escritório (desktop) — admin e gestor**
-- Menu lateral: Painel, Ordens, Agenda, Clientes, Equipamentos, Modo técnico (só para quem também é técnico), Configurações (em breve)
+- Menu lateral: Painel, Ordens, Agenda, Clientes, Equipamentos, Preventivas, Modo técnico (só para quem também é técnico), Configurações (em breve)
 - Rodapé do menu: saudação conforme a hora ("Bom dia", "Boa tarde", "Boa noite") com o primeiro nome de quem entrou, relógio e clima atual da cidade onde está o computador (se o navegador não informar a localização, usa Passos/MG)
 - Barra superior: busca, botão "Nova OS" e menu do usuário
 
@@ -187,9 +187,9 @@ cancelada    → (final)
 
 ### Painel operacional (MVP)
 
-- **Cartões de resumo:** OS em andamento, OS atrasadas (vermelho), atendimentos de hoje, OS urgentes, clientes e equipamentos; preventivas vencendo em 30 dias chegam na etapa 8. Clicar abre a lista já filtrada (ou a agenda do dia).
+- **Cartões de resumo:** OS em andamento, OS atrasadas (vermelho), atendimentos de hoje, OS urgentes, preventivas vencendo (vencidas ou a vencer em 30 dias, sem OS aberta; vermelho se houver vencida), clientes e equipamentos. Clicar abre a lista já filtrada (ou a agenda do dia).
 - **Agenda de hoje:** atendimentos do dia em ordem de horário, com técnico e status; horário em vermelho quando atrasado.
-- **Preventivas vencendo**, com botão "Gerar OS" (etapa 8).
+- **Preventivas vencendo:** tela própria (`/preventivas`), por cliente e local, com "Gerar OS" (uma OS por local).
 
 **Dashboard com gráficos fica para a fase 2:** OS por mês, tempo médio de atendimento, ranking de clientes, rentabilidade.
 
@@ -405,7 +405,8 @@ src/
     historico/               ✅ linha do tempo: data do atendimento, resumo (total, último, corretivas em 12 meses)
     equipamento/
       tipos.ts               ✅ tipos de equipamento, periodicidades
-      preventiva.ts          ← cálculo da próxima manutenção (etapa 8)
+      preventiva.ts          ✅ próxima manutenção e situação (sem importações: usado também pela Edge Function)
+      preventivasPendentes.ts ✅ lista de vencidas/vencendo, agrupamento por local e a OS de preventiva
     ordem/
       tipos.ts               ✅ OS, status, prioridade, tipo de serviço, formulário
       transicoes.ts          ✅ fluxo de status da seção 4
@@ -441,7 +442,7 @@ src/
       mapeadores.ts          ✅ banco (snake_case) ↔ domínio (camelCase)
       erros.ts               ✅ erros do Postgres → ErroDados com mensagem em português
     api/                     ← implementação futura (API Node)
-  pages/                     ✅ auth/, clientes/, equipamentos/, ordens/, agenda/, campo/ (técnico)
+  pages/                     ✅ auth/, clientes/, equipamentos/, ordens/, agenda/, preventivas/, campo/ (técnico)
   components/
     ui/                      ✅ shadcn (só visual)
     layout/                  ✅ escritório (menu lateral, busca geral) e técnico (menu inferior)
@@ -462,7 +463,8 @@ supabase/
   seed.sql                   ✅ dados de exemplo fictícios
   functions/                 ✅ Edge Functions (finas, chamam domain/)
     alterar-status-ordem/    ✅ agendar, reagendar, cancelar, iniciar, pausar, retomar e concluir
-                                (index.ts = Deno; regras.ts = TS puro)
+                                (index.ts = Deno; regras.ts = TS puro; na conclusão de uma
+                                preventiva, calcula a próxima manutenção dos equipamentos)
 docs/
   pdf/                       ← mockups, roteiro de entrevista e materiais de referência
   imagens/                   ← identidade visual (logos)
@@ -577,6 +579,7 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 - **Execução (etapa 4):** só o técnico atribuído grava, e só com a OS em execução (fotos também pausada). Toda empresa nasce com modelos de checklist padrão (gatilho em `organizacoes`); `preparar_checklist` copia os itens do modelo para a OS, então mudar o modelo depois não altera OS antigas. Quem respondeu e quando vêm do banco. O **tempo trabalhado** é a soma dos trechos entre "iniciar/retomar" e "pausar" no histórico (`src/domain/ordem/execucao.ts`). Diagnóstico e materiais gravados pela função `salvar_anotacoes_execucao` (cria ou atualiza só esses dois campos, passando pelo RLS). Fotos: caminho fixo `empresa/OS/id.jpg` (constraint), id gerado no celular para o reenvio não duplicar.
 - **Conclusão (etapa 5):** gravada só pela função `registrar_conclusao` (status `concluida`, assinatura e histórico na mesma transação), executada só pela chave de serviço da Edge Function; exige a OS ainda em execução. A assinatura tem imagem + nome **ou** motivo (constraint), a imagem precisa estar na pasta da própria OS, e ninguém altera assinatura pelo app.
 - **Histórico (etapa 6):** consultas `historico_do_equipamento` e `historico_do_cliente`, sobre a visão `privado.resumo_ordens` (fora da API): data, tipo, status, técnico, diagnóstico e contagens de fotos e não conformidades. No equipamento, qualquer membro ativo da empresa vê todos os atendimentos **em resumo** (decisão da etapa 6); no cliente, vale o RLS normal.
+- **Preventiva (etapa 8):** `proxima_manutencao` é atualizada ao concluir uma OS de **preventiva**: "dia da conclusão (no fuso de Brasília) + periodicidade", calculado na Edge Function e gravado por `registrar_conclusao` na mesma transação, só nos equipamentos daquela OS. Sem data guardada, vale "instalação + periodicidade"; sem instalação, vence no dia. Admin e gestor podem ajustar a data no cadastro. Corretiva não reinicia o ciclo.
 - CPF/CNPJ, telefone e CEP guardados **só com dígitos**; a pontuação é colocada na tela.
 
 ---
@@ -687,7 +690,7 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes
 | 5. Conclusão | Assinatura, revisão, encerramento e PDF | ✅ Concluída |
 | 6. Histórico | Linha do tempo por equipamento e por cliente | ✅ Concluída |
 | 7. IA | Mensagem → rascunho de OS | ⏸️ Adiada (não é obrigatória para o piloto; custo estimado: menos de 1 centavo de real por mensagem com Claude Haiku 5.5) |
-| 8. Preventiva simples | Periodicidade e lista de vencimentos | ⏳ Próxima |
+| 8. Preventiva simples | Periodicidade e lista de vencimentos | ✅ Concluída |
 
 ### Checklist da etapa 0
 
@@ -803,6 +806,21 @@ Decisões: no **equipamento**, o técnico vê os atendimentos de **todos** os t�
 - [x] Aplicado na nuvem e conferido no banco real com o usuário do teste
 
 > **Etapa 6 concluída.** As fotos de um equipamento aparecem como contagem por atendimento; vê-las exige abrir a OS (quem pode abrir).
+
+### Checklist da etapa 8
+
+Decisões: a próxima manutenção **conta a partir da última feita** ("data da conclusão + periodicidade"; sem registro, "instalação + periodicidade"; sem instalação, vence no dia; ajuste manual possível); **"Gerar OS" cria uma OS por local**, cobrindo os equipamentos marcados daquele local.
+
+- [x] Domínio (`src/domain/equipamento/preventiva.ts`, sem importações): dia no fuso de Brasília, soma de dias, vencimento e situação (vencida, vencendo em até 30 dias, em dia)
+- [x] Lista e geração (`preventivasPendentes.ts`): só ativos vencidos ou vencendo, aviso de preventiva já aberta (não duplica), agrupamento por local e a OS (prioridade alta se houver vencida)
+- [x] Migration: `registrar_conclusao` passa a gravar as novas datas na mesma transação, só nos equipamentos da OS e da mesma empresa
+- [x] Edge Function: na conclusão de uma preventiva, calcula a próxima de cada equipamento com periodicidade (testado em `regrasStatus.test.ts`; `deno check`)
+- [x] Testes do banco (`supabase/tests/preventiva.test.ts`): grava só na OS, ignora outros equipamentos e outras empresas, falha da conclusão não muda a data, ajuste manual pelo gestor
+- [x] Telas: "Preventivas" (menu e `/preventivas`), cartão no Painel, situação no detalhe do equipamento e "Próxima manutenção" ajustável no cadastro
+- [x] Aplicado na nuvem: migration e Edge Function publicadas em seguida (sem a função antiga no meio do caminho); tipos do banco gerados
+- [ ] **Teste no app de verdade:** gerar OS de preventiva de um local, agendar, executar e concluir no celular; conferir que a próxima manutenção do equipamento avançou
+
+> **Etapa 8 concluída.** Com ela, todas as etapas do MVP estão prontas, exceto a 7 (IA), adiada. Próximo passo: o [checklist antes do piloto](#checklist-antes-do-piloto).
 
 ### Checklist antes do piloto
 

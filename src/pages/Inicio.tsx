@@ -5,6 +5,7 @@ import {
   AirVent,
   AlarmClock,
   CalendarCheck,
+  CalendarClock,
   ClipboardList,
   Siren,
   Users,
@@ -13,6 +14,8 @@ import {
 import { Link } from 'react-router';
 import { CabecalhoPagina } from '@/components/pagina/CabecalhoPagina';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { diaNoFuso } from '@/domain/equipamento/preventiva';
+import { listarPreventivasPendentes } from '@/domain/equipamento/preventivasPendentes';
 import { eDeHoje, estaAtrasada } from '@/domain/ordem/planejamento';
 import { formatarNumeroOrdem, type Ordem } from '@/domain/ordem/tipos';
 import { statusFinal } from '@/domain/ordem/transicoes';
@@ -69,7 +72,7 @@ function CartaoResumo({
   );
 }
 
-// Painel operacional (seção 6). Preventivas vencendo chegam na etapa 8.
+// Painel operacional (seção 6).
 export function Inicio() {
   const organizacao = useOrganizacao();
   const agora = new Date();
@@ -97,6 +100,16 @@ export function Inicio() {
     .sort((a, b) => (a.agendadaPara ?? '').localeCompare(b.agendadaPara ?? ''));
   const totalClientes = clientes.data?.filter((cliente) => cliente.ativo).length;
   const totalEquipamentos = equipamentos.data?.filter((equipamento) => equipamento.ativo).length;
+  // Etapa 8: só as que ainda não têm OS de preventiva aberta (as outras já estão encaminhadas).
+  const preventivasSemOs =
+    equipamentos.data && ordens.data
+      ? listarPreventivasPendentes(equipamentos.data, ordens.data, diaNoFuso(agora)).filter(
+          (pendente) => !pendente.ordemAberta,
+        )
+      : undefined;
+  const preventivasVencidas = preventivasSemOs?.some(
+    (pendente) => pendente.situacao.tipo === 'vencida',
+  );
 
   return (
     <>
@@ -132,6 +145,18 @@ export function Inicio() {
           para="/ordens?prioridade=urgente"
         />
         <CartaoResumo
+          titulo="Preventivas vencendo"
+          total={preventivasSemOs?.length}
+          descricao={
+            preventivasVencidas
+              ? 'Há preventivas vencidas sem OS aberta'
+              : 'Vencidas ou a vencer em 30 dias, sem OS aberta'
+          }
+          icone={CalendarClock}
+          para="/preventivas"
+          alerta={preventivasVencidas}
+        />
+        <CartaoResumo
           titulo="Clientes"
           total={totalClientes}
           descricao="Clientes ativos"
@@ -147,9 +172,6 @@ export function Inicio() {
         />
       </div>
       <AgendaDoDia ordens={deHoje} agora={agora} carregando={ordens.isPending} />
-      <p className="mt-6 text-sm text-muted-foreground">
-        Preventivas vencendo aparecem aqui na etapa 8.
-      </p>
     </>
   );
 }

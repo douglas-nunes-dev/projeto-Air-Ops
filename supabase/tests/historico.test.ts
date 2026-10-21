@@ -116,14 +116,12 @@ beforeAll(async () => {
       `${empresaA}/${ordens.os1}/f0000000-0000-4000-8000-000000000001.jpg`,
     ],
   );
-  await consultarComo(banco, 'servico', 'select registrar_conclusao($1, $2, $3, $4, $5, $6)', [
-    ordens.os1,
-    tecnicoA,
-    null,
-    null,
-    'Responsável ausente',
-    'Concluída sem assinatura',
-  ]);
+  await consultarComo(
+    banco,
+    'servico',
+    "select registrar_conclusao($1, $2, $3, $4, $5, $6, '[]'::jsonb)",
+    [ordens.os1, tecnicoA, null, null, 'Responsável ausente', 'Concluída sem assinatura'],
+  );
 
   // OS 2: mesmo equipamento, de OUTRO técnico. OS 3: outro equipamento. OS 4: outro cliente.
   await abrir('os2', clienteA, localA, [splitUti]);

@@ -36,6 +36,7 @@ const CAMPOS = [
   'patrimonio',
   'dataInstalacao',
   'periodicidadeDias',
+  'proximaManutencao',
   'observacoes',
 ];
 
@@ -243,7 +244,14 @@ function CamposEquipamento({
               rotulo="Periodicidade"
               opcoes={OPCOES_PERIODICIDADE}
               opcaoVazia="Sem preventiva programada"
-              descricao="A lista de preventivas vencendo usa esta informação (etapa 8)."
+              descricao="A lista de preventivas vencendo usa esta informação."
+            />
+            <CampoTexto
+              control={formulario.control}
+              name="proximaManutencao"
+              rotulo="Próxima manutenção"
+              type="date"
+              descricao="Atualizada sozinha ao concluir uma preventiva. Ajuste só se precisar (ex.: data combinada com o cliente)."
             />
             <CampoAreaTexto
               control={formulario.control}

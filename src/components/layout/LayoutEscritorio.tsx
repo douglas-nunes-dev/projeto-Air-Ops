@@ -1,5 +1,6 @@
 import {
   AirVent,
+  CalendarClock,
   CalendarDays,
   ClipboardList,
   LayoutDashboard,
@@ -59,6 +60,7 @@ const ITENS_MENU: ItemMenu[] = [
   { rotulo: 'Agenda', icone: CalendarDays, para: '/agenda' },
   { rotulo: 'Clientes', icone: Users, para: '/clientes' },
   { rotulo: 'Equipamentos', icone: AirVent, para: '/equipamentos' },
+  { rotulo: 'Preventivas', icone: CalendarClock, para: '/preventivas' },
   { rotulo: 'Configurações', icone: Settings },
 ];
 

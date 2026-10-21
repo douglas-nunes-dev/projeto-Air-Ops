@@ -88,6 +88,8 @@ export const EquipamentoFormularioSchema = z.object({
   patrimonio: textoOpcional(40),
   dataInstalacao: dataOpcional,
   periodicidadeDias: inteiroOpcional('A periodicidade', 1, 3650),
+  /** Calculada ao concluir uma preventiva (etapa 8); aqui o gestor ajusta se precisar. */
+  proximaManutencao: dataOpcional,
   observacoes: textoOpcional(2000),
 });
 
@@ -105,6 +107,7 @@ export const EQUIPAMENTO_FORMULARIO_VAZIO: EquipamentoFormulario = {
   patrimonio: '',
   dataInstalacao: '',
   periodicidadeDias: '',
+  proximaManutencao: '',
   observacoes: '',
 };
 
@@ -126,6 +129,7 @@ export function equipamentoParaFormulario(equipamento: Equipamento): Equipamento
     dataInstalacao: equipamento.dataInstalacao ?? '',
     periodicidadeDias:
       equipamento.periodicidadeDias === null ? '' : String(equipamento.periodicidadeDias),
+    proximaManutencao: equipamento.proximaManutencao ?? '',
     observacoes: equipamento.observacoes ?? '',
   };
 }

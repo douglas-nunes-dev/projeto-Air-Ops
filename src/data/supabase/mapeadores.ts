@@ -116,6 +116,7 @@ export function linhaEquipamento(dados: DadosEquipamento) {
     patrimonio: dados.patrimonio,
     data_instalacao: dados.dataInstalacao,
     periodicidade_dias: dados.periodicidadeDias,
+    proxima_manutencao: dados.proximaManutencao,
     observacoes: dados.observacoes,
   } satisfies Partial<TablesInsert<'equipamentos'>>;
 }
