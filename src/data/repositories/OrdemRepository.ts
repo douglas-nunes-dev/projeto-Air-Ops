@@ -16,4 +16,9 @@ export interface OrdemRepository {
   /** Inicia (de agendada) ou retoma (de pausada). Só o técnico da OS (Edge Function). */
   iniciar(id: string): Promise<void>;
   pausar(id: string, motivo: string): Promise<void>;
+  /** Conclui com a assinatura (imagem já enviada) ou com o motivo de não haver. */
+  concluir(id: string, assinatura: AssinaturaParaConcluir): Promise<void>;
 }
+
+export type AssinaturaParaConcluir =
+  { nomeAssinante: string; caminhoAssinatura: string } | { motivoSemAssinatura: string };

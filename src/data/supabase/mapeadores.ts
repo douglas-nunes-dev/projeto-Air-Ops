@@ -1,7 +1,12 @@
 import type { DadosLocal, LocalAtendimento } from '@/domain/cliente/local';
 import type { Cliente, DadosCliente } from '@/domain/cliente/tipos';
 import type { DadosEquipamento, Equipamento } from '@/domain/equipamento/tipos';
-import type { AtividadeExecucao, FotoDaOrdem, ItemChecklist } from '@/domain/ordem/execucao';
+import type {
+  AssinaturaDaOrdem,
+  AtividadeExecucao,
+  FotoDaOrdem,
+  ItemChecklist,
+} from '@/domain/ordem/execucao';
 import type { DadosOrdem, EventoOrdem, Ordem } from '@/domain/ordem/tipos';
 import type { Papel } from '@/domain/organizacao/tipos';
 import type { Database, Tables, TablesInsert } from './tipos-banco';
@@ -219,6 +224,15 @@ export function mapearFoto(linha: LinhaFoto): FotoDaOrdem {
     legenda: linha.legenda,
     tiradaEm: linha.tirada_em,
     criadoPorNome: nomeDaPessoa(linha.usuario),
+  };
+}
+
+export function mapearAssinatura(linha: Tables<'assinaturas'>): AssinaturaDaOrdem {
+  return {
+    nomeAssinante: linha.nome_assinante,
+    caminho: linha.caminho,
+    motivoSemAssinatura: linha.motivo_sem_assinatura,
+    criadoEm: linha.criado_em,
   };
 }
 

@@ -1,9 +1,17 @@
-// Edge Function: agenda, reagenda, cancela, inicia, pausa e retoma OS
+// Edge Function: agenda, reagenda, cancela, inicia, pausa, retoma e conclui OS
 // (seção 11, "operações sensíveis no servidor").
 // Fina de propósito (regra 10 da seção 7): lê o pedido, busca os dados, pergunta às regras
 // (regras.ts) e grava. Usa a chave de serviço, então SEMPRE confere empresa e papel antes.
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0';
-import { decidir, lerPedido, STATUS_HTTP, type OrdemAtual, type Vinculo } from './regras.ts';
+import {
+  decidir,
+  decidirConclusao,
+  lerPedido,
+  STATUS_HTTP,
+  type OrdemAtual,
+  type Pedido,
+  type Vinculo,
+} from './regras.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -42,6 +50,52 @@ async function buscarVinculo(
   };
 }
 
+/** Conclusão (etapa 5): busca o que as regras precisam conferir e grava tudo de uma vez. */
+async function concluir(
+  banco: SupabaseClient,
+  pedido: Extract<Pedido, { acao: 'concluir' }>,
+  usuarioId: string,
+  ordem: (OrdemAtual & { organizacaoId: string }) | null,
+  quemPede: Vinculo,
+): Promise<Response> {
+  const [execucao, fotos, assinaturaEnviada] = ordem
+    ? await Promise.all([
+        banco
+          .from('ordem_servico_execucao')
+          .select('diagnostico')
+          .eq('ordem_id', pedido.ordemId)
+          .maybeSingle(),
+        banco
+          .from('anexos')
+          .select('id', { count: 'exact', head: true })
+          .eq('ordem_id', pedido.ordemId),
+        'caminho' in pedido.assinatura
+          ? banco.storage.from('anexos').exists(pedido.assinatura.caminho)
+          : Promise.resolve({ data: false }),
+      ])
+    : [null, null, null];
+
+  const decisao = decidirConclusao({
+    pedido,
+    usuarioId,
+    ordem,
+    quemPede,
+    diagnostico: execucao?.data?.diagnostico ?? null,
+    fotosEnviadas: fotos?.count ?? 0,
+    assinaturaEnviada: assinaturaEnviada?.data === true,
+  });
+  if (!decisao.ok) {
+    return erro(STATUS_HTTP[decisao.codigo], decisao.codigo, decisao.mensagem, decisao.campo);
+  }
+
+  const { error: erroGravacao } = await banco.rpc('registrar_conclusao', decisao.gravacao);
+  if (erroGravacao) {
+    if (erroGravacao.code === '55000') return erro(409, 'transicao_invalida', erroGravacao.message);
+    return erro(500, 'desconhecido', 'Não foi possível concluir. Tente de novo em instantes.');
+  }
+  return responder(200, { ok: true });
+}
+
 Deno.serve(async (requisicao) => {
   if (requisicao.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (requisicao.method !== 'POST') return erro(405, 'dados_invalidos', 'Use POST.');
@@ -78,6 +132,17 @@ Deno.serve(async (requisicao) => {
       }
     : null;
   const quemPede = linha ? await buscarVinculo(banco, linha.organizacao_id, usuario.id) : null;
+
+  if (pedido.acao === 'concluir') {
+    return concluir(
+      banco,
+      pedido,
+      usuario.id,
+      linha && ordem ? { ...ordem, organizacaoId: linha.organizacao_id } : null,
+      quemPede,
+    );
+  }
+
   const tecnico =
     linha && pedido.acao === 'agendar'
       ? await buscarVinculo(banco, linha.organizacao_id, pedido.tecnicoId)

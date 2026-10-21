@@ -45,6 +45,11 @@ export function podeEnviarFotos(
   );
 }
 
+/** Concluir (etapa 5): só o técnico da OS, com ela em execução (pausada precisa retomar). */
+export function podeConcluir(ordem: Pick<Ordem, 'status' | 'tecnicoId'>, quem: QuemUsa): boolean {
+  return eTecnicoDaOrdem(ordem, quem) && podeTransitar(ordem.status, 'concluida');
+}
+
 /** A OS já passou pela execução (tem algo para mostrar no acompanhamento). */
 export function execucaoComecou(ordem: Pick<Ordem, 'status'>): boolean {
   return (
@@ -223,10 +228,22 @@ export type FotoPendente = {
   erro: string | null;
 };
 
+/** Assinatura gravada na conclusão (etapa 5): imagem + nome, ou o motivo de não haver. */
+export type AssinaturaDaOrdem = {
+  nomeAssinante: string | null;
+  /** Caminho da imagem no Storage (regra 9); null quando não houve assinatura. */
+  caminho: string | null;
+  motivoSemAssinatura: string | null;
+  /** ISO 8601 */
+  criadoEm: string;
+};
+
 /** Tudo o que foi registrado na execução de uma OS. */
 export type Execucao = {
   anotacoes: AnotacoesExecucao;
   checklist: ItemChecklist[];
   atividades: AtividadeExecucao[];
   fotos: FotoDaOrdem[];
+  /** null enquanto a OS não foi concluída. */
+  assinatura: AssinaturaDaOrdem | null;
 };

@@ -1,6 +1,15 @@
 // Regras da mudança de status da OS (seções 4 e 11). Sem Deno nem Supabase: só decide o que
 // gravar, para dar para testar com o Vitest e reaproveitar numa rota da API Node no futuro.
 // Importa com ".ts" no fim porque o Deno exige a extensão.
+import {
+  descreverConclusao,
+  MENSAGENS_PENDENCIA,
+  MOTIVO_SEM_ASSINATURA_MAXIMO,
+  MOTIVO_SEM_ASSINATURA_MINIMO,
+  NOME_ASSINANTE_MAXIMO,
+  NOME_ASSINANTE_MINIMO,
+  pendenciasParaConcluir,
+} from '../../../src/domain/ordem/conclusao.ts';
 import { podeTransitar, type StatusOrdem } from '../../../src/domain/ordem/transicoes.ts';
 
 export const FUSO_DA_EMPRESA = 'America/Sao_Paulo';
@@ -24,7 +33,13 @@ export type Pedido =
   | { acao: 'cancelar'; ordemId: string; motivo: string }
   // Execução (etapa 4): iniciar também serve para retomar uma OS pausada.
   | { acao: 'iniciar'; ordemId: string }
-  | { acao: 'pausar'; ordemId: string; motivo: string };
+  | { acao: 'pausar'; ordemId: string; motivo: string }
+  // Conclusão (etapa 5): com assinatura (imagem já enviada ao Storage + nome) ou com o motivo.
+  | {
+      acao: 'concluir';
+      ordemId: string;
+      assinatura: { nomeAssinante: string; caminho: string } | { motivoSemAssinatura: string };
+    };
 
 export type CodigoErro =
   'sem_permissao' | 'nao_encontrado' | 'transicao_invalida' | 'dados_invalidos';
@@ -119,6 +134,8 @@ export function lerPedido(corpo: unknown): { ok: true; pedido: Pedido } | Recusa
 
   if (dados.acao === 'iniciar') return { ok: true, pedido: { acao: 'iniciar', ordemId } };
 
+  if (dados.acao === 'concluir') return lerConclusao(ordemId, dados);
+
   if (dados.acao === 'pausar') {
     const motivo = texto(dados.motivo);
     if (motivo.length < MOTIVO_MINIMO || motivo.length > MOTIVO_PAUSA_MAXIMO) {
@@ -132,6 +149,47 @@ export function lerPedido(corpo: unknown): { ok: true; pedido: Pedido } | Recusa
   }
 
   return recusar('dados_invalidos', 'Ação desconhecida.');
+}
+
+const CAMINHO_ASSINATURA = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.jpg$/;
+
+function lerConclusao(
+  ordemId: string,
+  dados: Record<string, unknown>,
+): { ok: true; pedido: Pedido } | Recusa {
+  const motivo = texto(dados.motivoSemAssinatura);
+  if (motivo) {
+    if (
+      motivo.length < MOTIVO_SEM_ASSINATURA_MINIMO ||
+      motivo.length > MOTIVO_SEM_ASSINATURA_MAXIMO
+    ) {
+      return recusar(
+        'dados_invalidos',
+        `Explique por que não há assinatura (de ${MOTIVO_SEM_ASSINATURA_MINIMO} a ${MOTIVO_SEM_ASSINATURA_MAXIMO} caracteres)`,
+        'motivoSemAssinatura',
+      );
+    }
+    return {
+      ok: true,
+      pedido: { acao: 'concluir', ordemId, assinatura: { motivoSemAssinatura: motivo } },
+    };
+  }
+
+  const nomeAssinante = texto(dados.nomeAssinante);
+  if (
+    nomeAssinante.length < NOME_ASSINANTE_MINIMO ||
+    nomeAssinante.length > NOME_ASSINANTE_MAXIMO
+  ) {
+    return recusar('dados_invalidos', 'Informe o nome de quem assinou', 'nomeAssinante');
+  }
+  const caminho = texto(dados.caminhoAssinatura);
+  if (!CAMINHO_ASSINATURA.test(caminho)) {
+    return recusar('dados_invalidos', 'Assinatura inválida. Peça para assinar de novo.');
+  }
+  return {
+    ok: true,
+    pedido: { acao: 'concluir', ordemId, assinatura: { nomeAssinante, caminho } },
+  };
 }
 
 /** "qui., 22/10 às 10:00", sempre no horário da empresa (o servidor roda em UTC). */
@@ -173,6 +231,9 @@ export function decidir(contexto: Contexto): { ok: true; gravacao: Gravacao } | 
 
   // Quem não é da empresa recebe "não encontrada": não revela que a OS existe.
   if (!ordem || !quemPede?.ativo) return recusar('nao_encontrado', 'OS não encontrada.');
+  if (pedido.acao === 'concluir') {
+    return recusar('dados_invalidos', 'Use decidirConclusao para concluir.');
+  }
   if (pedido.acao === 'iniciar' || pedido.acao === 'pausar') {
     return decidirExecucao(pedido, usuarioId, ordem, quemPede);
   }
@@ -300,6 +361,87 @@ function decidirExecucao(
       ...manter,
       p_status_novo: 'em_execucao',
       p_descricao: ordem.status === 'pausada' ? 'Execução retomada' : 'Execução iniciada',
+    },
+  };
+}
+
+/** Parâmetros da função registrar_conclusao do banco. */
+export type GravacaoConclusao = {
+  p_ordem_id: string;
+  p_usuario_id: string;
+  p_nome_assinante: string | null;
+  p_caminho_assinatura: string | null;
+  p_motivo_sem_assinatura: string | null;
+  p_descricao: string;
+};
+
+type ContextoConclusao = {
+  pedido: Extract<Pedido, { acao: 'concluir' }>;
+  usuarioId: string;
+  /** null = a OS não existe. */
+  ordem: (OrdemAtual & { organizacaoId: string }) | null;
+  quemPede: Vinculo;
+  diagnostico: string | null;
+  fotosEnviadas: number;
+  /** A imagem da assinatura foi mesmo enviada ao Storage. */
+  assinaturaEnviada: boolean;
+};
+
+/**
+ * Conclusão (etapa 5): só o técnico da OS, com ela em execução, diagnóstico preenchido,
+ * pelo menos uma foto e assinatura (ou motivo). Sem aprovação do gestor.
+ */
+export function decidirConclusao(
+  contexto: ContextoConclusao,
+): { ok: true; gravacao: GravacaoConclusao } | Recusa {
+  const { pedido, usuarioId, ordem, quemPede } = contexto;
+
+  if (!ordem || !quemPede?.ativo) return recusar('nao_encontrado', 'OS não encontrada.');
+  if (ordem.tecnicoId !== usuarioId) {
+    return podeGerenciar(quemPede)
+      ? recusar('sem_permissao', 'Só o técnico da OS conclui o atendimento.')
+      : recusar('nao_encontrado', 'OS não encontrada.');
+  }
+  if (!quemPede.papeis.includes('tecnico')) {
+    return recusar('sem_permissao', 'Só o técnico da OS conclui o atendimento.');
+  }
+  if (!podeTransitar(ordem.status, 'concluida')) {
+    return recusar(
+      'transicao_invalida',
+      ordem.status === 'pausada'
+        ? 'Retome o atendimento antes de concluir.'
+        : 'Só dá para concluir uma OS em execução.',
+    );
+  }
+
+  const pendencias = pendenciasParaConcluir({
+    diagnostico: contexto.diagnostico,
+    fotosEnviadas: contexto.fotosEnviadas,
+    fotosNaFila: 0,
+  });
+  if (pendencias.length > 0) {
+    return recusar('dados_invalidos', pendencias.map((p) => MENSAGENS_PENDENCIA[p]).join(' '));
+  }
+
+  const { assinatura } = pedido;
+  if ('caminho' in assinatura) {
+    // A imagem precisa ser desta OS e ter chegado ao Storage antes de concluir.
+    const pastaDaOrdem = `${ordem.organizacaoId}/${pedido.ordemId}/`;
+    if (!assinatura.caminho.startsWith(pastaDaOrdem) || !contexto.assinaturaEnviada) {
+      return recusar('dados_invalidos', 'A assinatura não chegou ao servidor. Tente de novo.');
+    }
+  }
+
+  return {
+    ok: true,
+    gravacao: {
+      p_ordem_id: pedido.ordemId,
+      p_usuario_id: usuarioId,
+      p_nome_assinante: 'nomeAssinante' in assinatura ? assinatura.nomeAssinante : null,
+      p_caminho_assinatura: 'caminho' in assinatura ? assinatura.caminho : null,
+      p_motivo_sem_assinatura:
+        'motivoSemAssinatura' in assinatura ? assinatura.motivoSemAssinatura : null,
+      p_descricao: descreverConclusao(assinatura),
     },
   };
 }

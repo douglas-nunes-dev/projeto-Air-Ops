@@ -1,14 +1,16 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, MapPin, Pause, Play } from 'lucide-react';
+import { ArrowLeft, CircleCheck, MapPin, Pause, Play } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import { toast } from 'sonner';
+import { AssinaturaRegistrada } from '@/components/execucao/AssinaturaRegistrada';
 import { ChecklistExecucao } from '@/components/execucao/ChecklistExecucao';
 import { GaleriaFotos } from '@/components/execucao/GaleriaFotos';
 import { ProgressoChecklist, TempoDeExecucao } from '@/components/execucao/ResumoExecucao';
 import { SecaoAnotacoes } from '@/components/execucao/SecaoAnotacoes';
 import { SecaoAtividades } from '@/components/execucao/SecaoAtividades';
 import { EtiquetaPrioridade, EtiquetaStatus } from '@/components/ordem/EtiquetasOrdem';
+import { BotaoRelatorio } from '@/components/relatorio/BotaoRelatorio';
 import { CarregandoLista, ErroConsulta } from '@/components/pagina/EstadosConsulta';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +19,7 @@ import {
   eTecnicoDaOrdem,
   execucaoComecou,
   podeEnviarFotos,
+  podeConcluir,
   podeIniciar,
   podePausar,
   podeRegistrarExecucao,
@@ -136,6 +139,14 @@ function TelaExecucao({ ordem }: { ordem: Ordem }) {
                   : 'Iniciar atendimento'}
             </Button>
           )}
+          {podeConcluir(ordem, pessoa) && (
+            <Button asChild className="h-12 w-full">
+              <Link to={`/campo/ordens/${ordem.id}/concluir`}>
+                <CircleCheck />
+                Concluir atendimento
+              </Link>
+            </Button>
+          )}
           {podePausar(ordem, pessoa) && (
             <Button variant="outline" className="h-12 w-full" onClick={() => setPausando(true)}>
               <Pause />
@@ -146,7 +157,13 @@ function TelaExecucao({ ordem }: { ordem: Ordem }) {
             <p className="text-sm text-muted-foreground">Aguardando o técnico iniciar.</p>
           )}
           {ordem.status === 'concluida' && (
-            <p className="text-sm text-muted-foreground">Atendimento concluído.</p>
+            <>
+              <p className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
+                <CircleCheck className="size-4" aria-hidden />
+                Atendimento concluído.
+              </p>
+              <BotaoRelatorio ordem={ordem} modo="compartilhar" className="h-12 w-full" />
+            </>
           )}
           {ordem.status === 'cancelada' && (
             <p className="text-sm text-muted-foreground">
@@ -199,6 +216,11 @@ function TelaExecucao({ ordem }: { ordem: Ordem }) {
                 editavel={editavel}
               />
             </Secao>
+            {execucao.data.assinatura && (
+              <Secao titulo="Assinatura do cliente">
+                <AssinaturaRegistrada ordemId={ordem.id} assinatura={execucao.data.assinatura} />
+              </Secao>
+            )}
             <Secao titulo="Fotos">
               <GaleriaFotos
                 ordem={ordem}

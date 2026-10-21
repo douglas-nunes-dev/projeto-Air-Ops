@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   decidir,
+  decidirConclusao,
   formatarHorario,
   lerPedido,
   type OrdemAtual,
@@ -242,5 +243,135 @@ describe('execução (etapa 4)', () => {
     expect(decidir(contexto({ pedido: cancelar, ...doTecnico }))).toMatchObject({
       codigo: 'sem_permissao',
     });
+  });
+});
+
+describe('conclusão (etapa 5)', () => {
+  const organizacaoId = 'aaaaaaaa-0000-4000-8000-000000000000';
+  const caminho = `${organizacaoId}/${ordemId}/a5500000-0000-4000-8000-000000000001.jpg`;
+  const comAssinatura = {
+    acao: 'concluir' as const,
+    ordemId,
+    assinatura: { nomeAssinante: 'Carla Souza', caminho },
+  };
+  const emExecucao = {
+    status: 'em_execucao' as const,
+    tecnicoId,
+    agendadaPara: '2026-10-23T13:00:00.000Z',
+    duracaoMinutos: 60,
+    organizacaoId,
+  };
+  const tudoPronto = {
+    pedido: comAssinatura,
+    usuarioId: tecnicoId,
+    ordem: emExecucao,
+    quemPede: tecnico,
+    diagnostico: 'Capacitor queimado, trocado',
+    fotosEnviadas: 2,
+    assinaturaEnviada: true,
+  };
+
+  it('lerPedido: assinatura com nome e caminho, ou motivo de não haver', () => {
+    expect(
+      lerPedido({
+        acao: 'concluir',
+        ordemId,
+        nomeAssinante: ' Carla Souza ',
+        caminhoAssinatura: caminho,
+      }),
+    ).toEqual({ ok: true, pedido: comAssinatura });
+    expect(
+      lerPedido({ acao: 'concluir', ordemId, motivoSemAssinatura: 'Responsável ausente' }),
+    ).toEqual({
+      ok: true,
+      pedido: {
+        acao: 'concluir',
+        ordemId,
+        assinatura: { motivoSemAssinatura: 'Responsável ausente' },
+      },
+    });
+    expect(lerPedido({ acao: 'concluir', ordemId, caminhoAssinatura: caminho })).toMatchObject({
+      campo: 'nomeAssinante',
+    });
+    expect(
+      lerPedido({
+        acao: 'concluir',
+        ordemId,
+        nomeAssinante: 'Carla',
+        caminhoAssinatura: '../x.jpg',
+      }),
+    ).toMatchObject({ ok: false });
+  });
+
+  it('o técnico conclui com tudo pronto: grava assinatura e descreve no histórico', () => {
+    expect(decidirConclusao(tudoPronto)).toEqual({
+      ok: true,
+      gravacao: {
+        p_ordem_id: ordemId,
+        p_usuario_id: tecnicoId,
+        p_nome_assinante: 'Carla Souza',
+        p_caminho_assinatura: caminho,
+        p_motivo_sem_assinatura: null,
+        p_descricao: 'Concluída. Assinada por Carla Souza',
+      },
+    });
+  });
+
+  it('sem assinatura, com motivo', () => {
+    const decisao = decidirConclusao({
+      ...tudoPronto,
+      pedido: {
+        acao: 'concluir',
+        ordemId,
+        assinatura: { motivoSemAssinatura: 'Responsável ausente' },
+      },
+      assinaturaEnviada: false,
+    });
+    expect(decisao).toMatchObject({
+      ok: true,
+      gravacao: {
+        p_caminho_assinatura: null,
+        p_motivo_sem_assinatura: 'Responsável ausente',
+        p_descricao: 'Concluída sem assinatura. Motivo: Responsável ausente',
+      },
+    });
+  });
+
+  it('exige diagnóstico e pelo menos uma foto', () => {
+    expect(decidirConclusao({ ...tudoPronto, diagnostico: '  ', fotosEnviadas: 0 })).toMatchObject({
+      codigo: 'dados_invalidos',
+      mensagem: 'Preencha o diagnóstico. Envie pelo menos uma foto.',
+    });
+  });
+
+  it('a assinatura precisa ter chegado ao Storage e ser da pasta desta OS', () => {
+    expect(decidirConclusao({ ...tudoPronto, assinaturaEnviada: false })).toMatchObject({
+      codigo: 'dados_invalidos',
+    });
+    const deOutraOs = `${organizacaoId}/dddddddd-0000-4000-8000-000000000099/a5500000-0000-4000-8000-000000000001.jpg`;
+    expect(
+      decidirConclusao({
+        ...tudoPronto,
+        pedido: { ...comAssinatura, assinatura: { nomeAssinante: 'Carla', caminho: deOutraOs } },
+      }),
+    ).toMatchObject({ codigo: 'dados_invalidos' });
+  });
+
+  it('só o técnico da OS conclui; gestor não, técnico de outra OS nem vê', () => {
+    expect(
+      decidirConclusao({ ...tudoPronto, usuarioId: gestorId, quemPede: gestor }),
+    ).toMatchObject({ codigo: 'sem_permissao' });
+    expect(
+      decidirConclusao({ ...tudoPronto, usuarioId: '00000000-0000-4000-8000-000000000009' }),
+    ).toMatchObject({ codigo: 'nao_encontrado' });
+  });
+
+  it('só conclui OS em execução (pausada pede para retomar)', () => {
+    expect(
+      decidirConclusao({ ...tudoPronto, ordem: { ...emExecucao, status: 'pausada' } }),
+    ).toMatchObject({ codigo: 'transicao_invalida', mensagem: /Retome/ });
+    expect(
+      decidirConclusao({ ...tudoPronto, ordem: { ...emExecucao, status: 'agendada' } }),
+    ).toMatchObject({ codigo: 'transicao_invalida' });
   });
 });

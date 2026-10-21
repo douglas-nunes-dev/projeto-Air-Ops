@@ -1,4 +1,4 @@
-import type { OrdemRepository } from '../repositories/OrdemRepository';
+import type { AssinaturaParaConcluir, OrdemRepository } from '../repositories/OrdemRepository';
 import type { DadosAgendamento } from '@/domain/ordem/planejamento';
 import type { DadosOrdem, EventoOrdem, Ordem } from '@/domain/ordem/tipos';
 import { obterClienteSupabase } from './client';
@@ -73,6 +73,10 @@ export class SupabaseOrdemRepository implements OrdemRepository {
 
   async pausar(id: string, motivo: string): Promise<void> {
     await chamarFuncao('alterar-status-ordem', { acao: 'pausar', ordemId: id, motivo });
+  }
+
+  async concluir(id: string, assinatura: AssinaturaParaConcluir): Promise<void> {
+    await chamarFuncao('alterar-status-ordem', { acao: 'concluir', ordemId: id, ...assinatura });
   }
 
   private async exigirOrdem(id: string): Promise<Ordem> {

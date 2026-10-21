@@ -13,6 +13,7 @@ import { useAgora } from '@/hooks/useAgora';
 import { chaves } from '@/lib/chavesConsulta';
 import { buscarExecucao } from '@/services/execucaoService';
 import { listarEventosDaOrdem } from '@/services/ordemService';
+import { AssinaturaRegistrada } from './AssinaturaRegistrada';
 import { ChecklistExecucao } from './ChecklistExecucao';
 import { GaleriaFotos } from './GaleriaFotos';
 import { SecaoAnotacoes } from './SecaoAnotacoes';
@@ -88,6 +89,12 @@ export function ResumoExecucao({ ordem }: { ordem: Ordem }) {
                 editavel={false}
               />
             </section>
+            {execucao.data.assinatura && (
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold">Assinatura do cliente</h3>
+                <AssinaturaRegistrada ordemId={ordem.id} assinatura={execucao.data.assinatura} />
+              </section>
+            )}
             <section className="space-y-3">
               <h3 className="text-sm font-semibold">Fotos</h3>
               <GaleriaFotos ordem={ordem} fotos={execucao.data.fotos} podeEnviar={false} />

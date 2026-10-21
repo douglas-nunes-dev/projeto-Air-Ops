@@ -54,6 +54,7 @@ const execucaoComChecklist: Execucao = {
   ],
   atividades: [],
   fotos: [],
+  assinatura: null,
 };
 
 function abrirExecucao(ordem: Ordem, organizacao = tecnico) {

@@ -9,6 +9,7 @@ import { CabecalhoPagina } from '@/components/pagina/CabecalhoPagina';
 import { CarregandoLista, ErroConsulta } from '@/components/pagina/EstadosConsulta';
 import { InfoItem } from '@/components/pagina/InfoItem';
 import { ResumoExecucao } from '@/components/execucao/ResumoExecucao';
+import { BotaoRelatorio } from '@/components/relatorio/BotaoRelatorio';
 import { eTecnicoDaOrdem, execucaoComecou } from '@/domain/ordem/execucao';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -103,6 +104,7 @@ export function DetalheOrdem() {
         }
         acoes={
           <>
+            {ordem.status === 'concluida' && <BotaoRelatorio ordem={ordem} modo="baixar" />}
             {eTecnicoDaOrdem(ordem, pessoa) && !statusFinal(ordem.status) && (
               <Button asChild>
                 <Link to={`/campo/ordens/${ordem.id}`}>

@@ -8,6 +8,7 @@ import { OrganizacaoProvider } from '@/components/layout/OrganizacaoProvider';
 import { abreNoModoTecnico } from '@/domain/organizacao/tipos';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useOrganizacao } from '@/hooks/useOrganizacao';
+import { ConcluirOrdem } from '@/pages/campo/ConcluirOrdem';
 import { ExecucaoOrdem } from '@/pages/campo/ExecucaoOrdem';
 import { Hoje } from '@/pages/campo/Hoje';
 import { MinhasOrdens } from '@/pages/campo/MinhasOrdens';
@@ -67,6 +68,7 @@ function App() {
             <Route index element={<Hoje />} />
             <Route path="ordens" element={<MinhasOrdens />} />
             <Route path="ordens/:id" element={<ExecucaoOrdem />} />
+            <Route path="ordens/:id/concluir" element={<ConcluirOrdem />} />
             <Route path="perfil" element={<Perfil />} />
           </Route>
           <Route element={<EscritorioOuTecnico />}>

@@ -8,7 +8,11 @@ import type {
 } from '@/domain/ordem/execucao';
 import { obterClienteSupabase } from './client';
 import { converterErroBanco, dadosOuNulo, exigirDados } from './erros';
-import { mapearAtividade, mapearFoto, mapearItemChecklist } from './mapeadores';
+import { mapearAssinatura, mapearAtividade, mapearFoto, mapearItemChecklist } from './mapeadores';
+
+function mapearOuNulo(linha: Parameters<typeof mapearAssinatura>[0] | null) {
+  return linha ? mapearAssinatura(linha) : null;
+}
 
 // O RLS não dá erro quando bloqueia um update ou delete: só não altera nada.
 // Por isso essas operações pedem as linhas de volta e conferem se alguma mudou.
@@ -19,7 +23,7 @@ const FORA_DA_EXECUCAO = new ErroDados('sem_permissao', {
 export class SupabaseExecucaoRepository implements ExecucaoRepository {
   async buscar(ordemId: string): Promise<Execucao> {
     const banco = obterClienteSupabase();
-    const [anotacoes, checklist, atividades, fotos] = await Promise.all([
+    const [anotacoes, checklist, atividades, fotos, assinatura] = await Promise.all([
       banco
         .from('ordem_servico_execucao')
         .select('diagnostico, materiais')
@@ -36,6 +40,7 @@ export class SupabaseExecucaoRepository implements ExecucaoRepository {
         .select('*, usuario:usuarios!anexos_criado_por_fkey(nome, email)')
         .eq('ordem_id', ordemId)
         .order('tirada_em'),
+      banco.from('assinaturas').select('*').eq('ordem_id', ordemId).maybeSingle(),
     ]);
 
     return {
@@ -43,6 +48,7 @@ export class SupabaseExecucaoRepository implements ExecucaoRepository {
       checklist: exigirDados(checklist).map(mapearItemChecklist),
       atividades: exigirDados(atividades).map(mapearAtividade),
       fotos: exigirDados(fotos).map(mapearFoto),
+      assinatura: mapearOuNulo(dadosOuNulo(assinatura)),
     };
   }
 

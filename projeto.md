@@ -102,7 +102,7 @@ A OS pode nascer de três portas: **abertura manual**, **mensagem convertida pel
 | 1. Abrir: cliente, local, equipamento(s), problema, prioridade | `aberta` | Atendente ou gestor | Escritório |
 | 2. Planejar: data, horário, técnico | `agendada` | Gestor | Escritório |
 | 3. Executar: diagnóstico, checklist, atividades, tempo, fotos | `em_execucao` | Técnico | Campo (celular) |
-| 4. Concluir: assinatura, revisão, encerramento, PDF | `concluida` | Técnico e gestor | Campo e escritório |
+| 4. Concluir: revisão, assinatura, encerramento, PDF | `concluida` | Técnico (sem aprovação do gestor) | Campo; o PDF também no escritório |
 | 5. Consultar histórico do equipamento e do cliente | — | Todos | Ambos |
 
 ### Desvios
@@ -136,7 +136,7 @@ cancelada    → (final)
 | Técnico | `tecnico` | Vê as OS atribuídas a ele e registra execução, fotos e assinatura |
 
 - Uma pessoa pode ter **mais de um papel**.
-- **Modo autônomo:** uma única pessoa acumula os três papéis, com telas simplificadas e sem etapas de aprovação.
+- **Modo autônomo:** uma única pessoa acumula os três papéis, com telas simplificadas e sem etapas de aprovação (a OS é concluída direto pelo técnico, para autônomo e pequena empresa).
 - Cliente da prestadora (portal) e administrador da plataforma ficam para a fase SaaS.
 
 ---
@@ -374,7 +374,7 @@ Configurar o ESLint para bloquear importações do Supabase fora da pasta permit
 | Fotos e anexos | Supabase Storage | Sempre via `storageService`; buckets privados |
 | Lógica de servidor | Supabase Edge Functions | IA e PDF; nenhuma chave secreta no navegador |
 | IA | Claude API (modelo Haiku) | Mensagem → rascunho de OS |
-| PDF | `@react-pdf/renderer` | Relatório montado com componentes React |
+| PDF | `@react-pdf/renderer` + fonte Inter embutida (`@fontsource/inter`) | Relatório montado no aparelho, só quando pedido (biblioteca carregada sob demanda); compartilhar no celular ou baixar no computador |
 | Assinatura | `react-signature-canvas` | Captura na tela do celular |
 | Fila de fotos | IndexedDB (lib `idb`) | Guarda e reenvia quando o sinal voltar |
 | Testes | Vitest + Testing Library + PGlite | Unitários e telas (projeto `app`); migrations e RLS num Postgres em memória (projeto `banco`, em `supabase/tests/`) |
@@ -412,6 +412,9 @@ src/
       preenchimento.ts       ✅ OS aberta a partir do cliente ou do equipamento
       planejamento.ts        ✅ agendar, cancelar, atrasada, de hoje, conflito de horário
       execucao.ts            ✅ quem executa, tempo trabalhado, pausa, checklist, anotações, fotos
+      conclusao.ts           ✅ o que falta para concluir (sem importações: usado também pela Edge Function)
+      conclusaoFormulario.ts ✅ assinatura + nome, ou motivo de não haver assinatura
+      relatorio.ts           ✅ conteúdo do PDF em texto pronto (testável sem gerar o arquivo)
     ia/
       promptRascunhoOS.ts
   services/                  ← o que as telas usam
@@ -422,6 +425,7 @@ src/
     ordemService.ts          ✅ inclui iniciar, pausar e retomar
     execucaoService.ts       ✅ checklist, diagnóstico, materiais e atividades
     storageService.ts        ✅ fotos: fila no aparelho, envio, endereços temporários
+    conclusaoService.ts      ✅ concluir (assinatura no Storage + Edge Function) e dados do relatório
     iaService.ts
   data/
     index.ts                 ✅ ÚNICO ponto que escolhe a implementação
@@ -440,20 +444,21 @@ src/
     ui/                      ✅ shadcn (só visual)
     layout/                  ✅ escritório (menu lateral, busca geral) e técnico (menu inferior)
     ordem/                   ✅ etiquetas de status e prioridade
-    execucao/                ✅ checklist, anotações, atividades, fotos e resumo (editável ou só leitura)
+    execucao/                ✅ checklist, anotações, atividades, fotos, assinatura e resumo (editável ou só leitura)
+    relatorio/               ✅ desenho do PDF (RelatorioPdf), geração sob demanda e botão compartilhar/baixar
     formulario/              ✅ campos ligados ao React Hook Form
     pagina/                  ✅ cabeçalho, busca, estados de carregando/erro
     tabela/                  ✅ tabela com busca, ordenação e paginação
   hooks/                     ✅ useSessao, useOrganizacao, usePessoaLogada, useAgora (relógio),
                                 useLocalizacao, useFotosPendentes, useEnvioDeFotos
-  lib/                       ✅ utilitários genéricos (texto, datas, chaves do cache, redução de fotos, ids)
+  lib/                       ✅ utilitários genéricos (texto, datas, chaves do cache, redução de fotos, ids, compartilhar arquivo)
   test/                      ✅ preparação e dados de exemplo dos testes de tela
 supabase/
   migrations/                ✅ SQL versionado
   tests/                     ✅ testes de RLS e regras do banco (PGlite)
   seed.sql                   ✅ dados de exemplo fictícios
   functions/                 ✅ Edge Functions (finas, chamam domain/)
-    alterar-status-ordem/    ✅ agendar, reagendar, cancelar, iniciar, pausar e retomar
+    alterar-status-ordem/    ✅ agendar, reagendar, cancelar, iniciar, pausar, retomar e concluir
                                 (index.ts = Deno; regras.ts = TS puro)
 docs/
   pdf/                       ← mockups, roteiro de entrevista e materiais de referência
@@ -533,7 +538,7 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 | `clientes` | Quem a prestadora atende |
 | `locais_atendimento` | Endereços, unidades e setores do cliente |
 | `equipamentos` | Identificação, marca/modelo, capacidade, série, `periodicidade_dias`, `proxima_manutencao` |
-| `ordens_servico` | Cliente, local, problema, prioridade, status, técnico, horário agendado, `duracao_minutos`, `motivo_cancelamento`; `os_origem_id` (retorno) chega na etapa 5 |
+| `ordens_servico` | Cliente, local, problema, prioridade, status, técnico, horário agendado, `duracao_minutos`, `motivo_cancelamento`; `os_origem_id` (retorno) ainda não existe (ver checklist da etapa 5) |
 | `ordem_servico_equipamentos` | Equipamentos atendidos na OS (uma preventiva pode cobrir vários) |
 | `ordem_servico_eventos` | Histórico de status, atribuições e alterações relevantes |
 | `ordem_servico_execucao` | Diagnóstico e materiais (texto livre) de cada OS |
@@ -541,7 +546,7 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 | `checklist_modelos` | Modelo por tipo de serviço em cada empresa (preventiva, corretiva, instalação) |
 | `checklist_respostas` | Itens **copiados** do modelo para cada OS e a resposta (OK, não conforme, não se aplica) |
 | `anexos` | **Caminho** das fotos no Storage (nunca a URL completa) |
-| `assinaturas` | Assinatura do cliente com nome, data e caminho da imagem (etapa 5) |
+| `assinaturas` | Uma por OS, gravada na conclusão: nome + caminho da imagem (JPEG na pasta da OS), ou o motivo de não haver assinatura |
 
 **Relacionamentos principais**
 
@@ -567,6 +572,7 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 - **Mudança de status:** gravada só pela função `registrar_mudanca_status` (OS e histórico na mesma transação), que só a chave de serviço da Edge Function executa. Ela recebe o status esperado: se outra pessoa mudou a OS no meio do caminho, nada é gravado.
 - **Planejamento:** `duracao_minutos` (padrão 60) monta a agenda; OS `agendada` sempre tem técnico e horário, e OS `cancelada` sempre tem `motivo_cancelamento` (constraints).
 - **Execução (etapa 4):** só o técnico atribuído grava, e só com a OS em execução (fotos também pausada). Toda empresa nasce com modelos de checklist padrão (gatilho em `organizacoes`); `preparar_checklist` copia os itens do modelo para a OS, então mudar o modelo depois não altera OS antigas. Quem respondeu e quando vêm do banco. O **tempo trabalhado** é a soma dos trechos entre "iniciar/retomar" e "pausar" no histórico (`src/domain/ordem/execucao.ts`). Diagnóstico e materiais gravados pela função `salvar_anotacoes_execucao` (cria ou atualiza só esses dois campos, passando pelo RLS). Fotos: caminho fixo `empresa/OS/id.jpg` (constraint), id gerado no celular para o reenvio não duplicar.
+- **Conclusão (etapa 5):** gravada só pela função `registrar_conclusao` (status `concluida`, assinatura e histórico na mesma transação), executada só pela chave de serviço da Edge Function; exige a OS ainda em execução. A assinatura tem imagem + nome **ou** motivo (constraint), a imagem precisa estar na pasta da própria OS, e ninguém altera assinatura pelo app.
 - CPF/CNPJ, telefone e CEP guardados **só com dígitos**; a pontuação é colocada na tela.
 
 ---
@@ -602,7 +608,7 @@ As permissões da seção 5 são garantidas **no RLS**, não só escondendo bot�
 ### Operações sensíveis no servidor
 
 - Mudança de status, conclusão, cancelamento e assinatura passam por uma **Edge Function** que reutiliza `src/domain/ordem/transicoes.ts`, confere organização e papel do usuário e grava o evento em `ordem_servico_eventos`.
-  - **Feito na etapa 3:** `alterar-status-ordem` agenda, reagenda e cancela. **Etapa 4:** inicia, pausa (com motivo) e retoma, só pelo técnico atribuído à OS (admin e gestor recebem "sem permissão"; técnico de outra OS, "não encontrada"). O `transicoes.ts` não tem importações, por isso o Deno usa o mesmo arquivo do app (a publicação leva o arquivo de `src/` junto). A checagem automática de token do Supabase está desligada (`verify_jwt = false` no `config.toml`) porque a função confere o login com `auth.getUser`; quem não é da empresa recebe "não encontrada".
+  - **Feito na etapa 3:** `alterar-status-ordem` agenda, reagenda e cancela. **Etapa 4:** inicia, pausa (com motivo) e retoma, só pelo técnico atribuído à OS (admin e gestor recebem "sem permissão"; técnico de outra OS, "não encontrada"). **Etapa 5:** conclui, só pelo técnico da OS em execução, conferindo no servidor o diagnóstico, pelo menos uma foto enviada e a assinatura (a imagem precisa ter chegado ao Storage, na pasta da OS) ou o motivo de não haver. O `transicoes.ts` não tem importações, por isso o Deno usa o mesmo arquivo do app (a publicação leva o arquivo de `src/` junto). A checagem automática de token do Supabase está desligada (`verify_jwt = false` no `config.toml`) porque a função confere o login com `auth.getUser`; quem não é da empresa recebe "não encontrada".
 - O usuário comum **não pode alterar a coluna `status` diretamente** (permissão de coluna no banco); só a Edge Function altera.
 - OS `concluida` ou `cancelada` não pode mais ser editada; a assinatura não pode ser trocada depois de registrada.
 - Isso respeita a regra 12 da seção 7: o banco só bloqueia; a regra de negócio continua em TypeScript.
@@ -673,8 +679,8 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes
 | 2. Abertura de OS | Formulário de abertura e lista com filtros | ✅ Concluída |
 | 3. Planejamento | Agendamento, atribuição e agenda por técnico | ✅ Concluída |
 | 4. Execução | Tela do técnico: diagnóstico, checklist, tempo, fotos com fila | ✅ Concluída |
-| 5. Conclusão | Assinatura, revisão, encerramento e PDF | ⏳ Próxima |
-| 6. Histórico | Linha do tempo por equipamento e por cliente | |
+| 5. Conclusão | Assinatura, revisão, encerramento e PDF | ✅ Concluída (falta o teste no celular) |
+| 6. Histórico | Linha do tempo por equipamento e por cliente | ⏳ Próxima |
 | 7. IA | Mensagem → rascunho de OS | |
 | 8. Preventiva simples | Periodicidade e lista de vencimentos | |
 
@@ -763,6 +769,23 @@ Decisões: **modelos de checklist prontos** por tipo de serviço; **tempo autom�
 - [x] **Teste no app de verdade, no celular** (iPhone/Safari, pelo túnel): iniciar, checklist (9 itens), diagnóstico, atividade, foto, pausar e retomar — tudo conferido no banco. Falta só a foto em modo avião no aparelho (a fila está coberta pelos testes automáticos)
 
 > **Etapa 4 concluída e testada no celular.** A edição dos modelos de checklist pela empresa fica para a tela de Configurações. Concluir a OS (assinatura, revisão e PDF) é a etapa 5.
+
+### Checklist da etapa 5
+
+Decisões: **o técnico conclui direto** (sem aprovação do gestor; serve ao autônomo e à pequena empresa); **obrigatórios para concluir:** diagnóstico, pelo menos uma foto e a assinatura do cliente (ou o motivo de não haver); o checklist completo **não** é obrigatório; **o PDF mostra** tempo trabalhado, checklist completo e materiais (**sem fotos**); **entrega:** compartilhar no celular (WhatsApp, e-mail…) ou baixar, com o PDF montado na hora a partir da OS concluída, que não muda mais.
+
+- [x] Migration: tabela `assinaturas` (imagem + nome, ou motivo; imagem na pasta da OS) e função `registrar_conclusao` (status, assinatura e histórico juntos; só a chave de serviço)
+- [x] Testes do banco (`supabase/tests/conclusao.test.ts`): transação única, constraints, só OS em execução, ninguém conclui direto nem altera assinatura, OS concluída trava fotos e anotações
+- [x] Edge Function: ação `concluir` (só o técnico da OS em execução; diagnóstico, foto e assinatura conferidos no servidor), testada em `regrasStatus.test.ts` e conferida com `deno check`
+- [x] Domínio: o que falta para concluir (`conclusao.ts`, compartilhado com a Edge Function), formulário de assinatura e conteúdo do relatório (`relatorio.ts`)
+- [x] Tela "Concluir atendimento" (`/campo/ordens/:id/concluir`): revisão, o que falta (inclusive fotos ainda na fila), assinatura com o dedo (não some ao abrir o teclado), nome, ou "o cliente não pôde assinar" com motivo
+- [x] Depois de concluída: assinatura registrada na OS (celular e escritório), "Compartilhar relatório" no celular e "Baixar relatório (PDF)" no escritório
+- [x] PDF: fonte Inter embutida (acentos, travessão, aspas do celular), quebra de página automática, rodapé com data e "Página X de Y"; conferido gerando exemplos
+- [x] Aplicado na nuvem: migration, Edge Function e tipos do banco; conclusão direta pelo banco recusada até para o técnico
+- [ ] **Teste no celular:** concluir a OS 5 com assinatura, compartilhar o relatório pelo WhatsApp e baixar o PDF no escritório
+- [ ] **Retorno** (`os_origem_id`: "o serviço não resolveu → nova OS vinculada à anterior", seção 4): fica para uma próxima etapa
+
+> **Etapa 5 concluída no código.** Com o teste no celular e o [checklist antes do piloto](#checklist-antes-do-piloto), o MVP pode ir para o piloto (seção 13).
 
 ### Checklist antes do piloto
 
@@ -856,7 +879,7 @@ A migração **não precisa ser de uma vez**. Caminho sugerido:
 
 - [x] Campos obrigatórios de uma OS (decidido na etapa 2: cliente, local, tipo de serviço, prioridade e problema)
 - [x] Modelos de checklist iniciais (decidido na etapa 4: preventiva split, corretiva e instalação; validar os itens com o piloto)
-- [ ] Conteúdo mínimo do relatório em PDF para ser aceito pelos contratantes (validar com o piloto)
-- [ ] Regras exatas do modo autônomo
+- [x] Conteúdo do relatório em PDF (decidido na etapa 5: dados da OS, tempo trabalhado, checklist completo, diagnóstico, atividades, materiais e assinatura; sem fotos) — **validar com o piloto** se o contratante aceita
+- [x] Regras do modo autônomo (decidido na etapa 5: sem aprovação; o técnico conclui direto. Aprovação opcional por empresa pode entrar em Configurações se o piloto pedir)
 - [ ] Critérios formais de sucesso do piloto
 - [ ] Requisitos de documentação em ambiente hospitalar (levantar com o prestador e o contratante)

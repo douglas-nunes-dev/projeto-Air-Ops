@@ -59,6 +59,51 @@ export type Database = {
           },
         ];
       };
+      assinaturas: {
+        Row: {
+          caminho: string | null;
+          criado_em: string;
+          motivo_sem_assinatura: string | null;
+          nome_assinante: string | null;
+          ordem_id: string;
+          organizacao_id: string;
+          usuario_id: string | null;
+        };
+        Insert: {
+          caminho?: string | null;
+          criado_em?: string;
+          motivo_sem_assinatura?: string | null;
+          nome_assinante?: string | null;
+          ordem_id: string;
+          organizacao_id: string;
+          usuario_id?: string | null;
+        };
+        Update: {
+          caminho?: string | null;
+          criado_em?: string;
+          motivo_sem_assinatura?: string | null;
+          nome_assinante?: string | null;
+          ordem_id?: string;
+          organizacao_id?: string;
+          usuario_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'assinaturas_ordem_id_organizacao_id_fkey';
+            columns: ['ordem_id', 'organizacao_id'];
+            isOneToOne: false;
+            referencedRelation: 'ordens_servico';
+            referencedColumns: ['id', 'organizacao_id'];
+          },
+          {
+            foreignKeyName: 'assinaturas_usuario_id_fkey';
+            columns: ['usuario_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       checklist_modelos: {
         Row: {
           atualizado_em: string;
@@ -720,6 +765,17 @@ export type Database = {
         Returns: undefined;
       };
       preparar_checklist: { Args: { p_ordem_id: string }; Returns: undefined };
+      registrar_conclusao: {
+        Args: {
+          p_caminho_assinatura: string;
+          p_descricao: string;
+          p_motivo_sem_assinatura: string;
+          p_nome_assinante: string;
+          p_ordem_id: string;
+          p_usuario_id: string;
+        };
+        Returns: undefined;
+      };
       registrar_mudanca_status: {
         Args: {
           p_agendada_para: string;
