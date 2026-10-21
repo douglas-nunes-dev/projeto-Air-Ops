@@ -9,6 +9,8 @@ const PASTA_MIGRATIONS = join(import.meta.dirname, '..', 'migrations');
 const IMITACAO_SUPABASE = `
   create role anon nologin;
   create role authenticated nologin;
+  -- Chave de serviço (usada só nas Edge Functions): ignora o RLS, como no Supabase.
+  create role service_role nologin bypassrls;
   create schema auth;
   create table auth.users (
     id uuid primary key,
@@ -17,10 +19,10 @@ const IMITACAO_SUPABASE = `
   );
   create function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-  grant usage on schema public, auth to anon, authenticated;
+  grant usage on schema public, auth to anon, authenticated, service_role;
   grant execute on function auth.uid() to anon, authenticated;
   -- O Supabase libera tudo por padrão nas tabelas novas; as migrations precisam restringir.
-  alter default privileges in schema public grant all on tables to anon, authenticated;
+  alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 `;
 
 export type ResultadoConsulta = {
@@ -42,16 +44,21 @@ export async function criarBancoDeTeste(): Promise<PGlite> {
   return banco;
 }
 
-/** Roda a consulta como o usuário logado indicado (ou como anônimo, se for null), passando pelo RLS. */
+/**
+ * Roda a consulta como o usuário logado indicado (ou como anônimo, se for null), passando pelo RLS.
+ * "servico" imita a chave de serviço das Edge Functions.
+ */
 export async function consultarComo(
   banco: PGlite,
-  usuarioId: string | null,
+  usuarioId: string | null | 'servico',
   sql: string,
   parametros: unknown[] = [],
 ): Promise<ResultadoConsulta> {
   await banco.exec('begin');
   try {
-    if (usuarioId) {
+    if (usuarioId === 'servico') {
+      await banco.exec('set local role service_role');
+    } else if (usuarioId) {
       await banco.exec('set local role authenticated');
       await banco.query("select set_config('request.jwt.claim.sub', $1, true)", [usuarioId]);
     } else {

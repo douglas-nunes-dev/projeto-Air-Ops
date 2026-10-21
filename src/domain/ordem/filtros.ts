@@ -1,9 +1,13 @@
 import { format } from 'date-fns';
 import { PRIORIDADES, STATUS_ORDEM, type Ordem, type Prioridade, type StatusOrdem } from './tipos';
+import { estaAtrasada } from './planejamento';
 import { statusFinal } from './transicoes';
 
-/** "em_andamento" = tudo que ainda não foi concluído nem cancelado. */
-export type SituacaoFiltro = 'em_andamento' | 'todas' | StatusOrdem;
+/**
+ * "em_andamento" = tudo que ainda não foi concluído nem cancelado;
+ * "atrasadas" = agendadas cujo horário já passou sem a execução começar.
+ */
+export type SituacaoFiltro = 'em_andamento' | 'atrasadas' | 'todas' | StatusOrdem;
 
 /** Filtro de técnico: um id, "sem_tecnico" ou vazio (qualquer um). */
 export const SEM_TECNICO = 'sem_tecnico';
@@ -25,7 +29,7 @@ export const FILTRO_PADRAO: FiltroOrdens = {
   abertaAte: '',
 };
 
-const SITUACOES: readonly string[] = ['em_andamento', 'todas', ...STATUS_ORDEM];
+const SITUACOES: readonly string[] = ['em_andamento', 'atrasadas', 'todas', ...STATUS_ORDEM];
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Lê o filtro do endereço (ex.: /ordens?situacao=aberta), ignorando valores que não existem. */
@@ -56,8 +60,9 @@ export function filtroParaParametros(filtro: FiltroOrdens): URLSearchParams {
   return parametros;
 }
 
-function passaSituacao(ordem: Ordem, situacao: SituacaoFiltro): boolean {
+function passaSituacao(ordem: Ordem, situacao: SituacaoFiltro, agora: Date): boolean {
   if (situacao === 'todas') return true;
+  if (situacao === 'atrasadas') return estaAtrasada(ordem, agora);
   if (situacao === 'em_andamento') return !statusFinal(ordem.status);
   return ordem.status === situacao;
 }
@@ -76,10 +81,14 @@ function passaPeriodo(ordem: Ordem, de: string, ate: string): boolean {
   return true;
 }
 
-export function filtrarOrdens(ordens: Ordem[], filtro: FiltroOrdens): Ordem[] {
+export function filtrarOrdens(
+  ordens: Ordem[],
+  filtro: FiltroOrdens,
+  agora: Date = new Date(),
+): Ordem[] {
   return ordens.filter(
     (ordem) =>
-      passaSituacao(ordem, filtro.situacao) &&
+      passaSituacao(ordem, filtro.situacao, agora) &&
       (!filtro.prioridade || ordem.prioridade === filtro.prioridade) &&
       passaTecnico(ordem, filtro.tecnicoId) &&
       passaPeriodo(ordem, filtro.abertaDe, filtro.abertaAte),

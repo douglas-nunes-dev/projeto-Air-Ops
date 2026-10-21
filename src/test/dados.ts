@@ -72,6 +72,8 @@ export const ordemDeTeste: Ordem = {
   tecnicoId: null,
   tecnicoNome: null,
   agendadaPara: null,
+  duracaoMinutos: 60,
+  motivoCancelamento: null,
   abertaPorNome: 'Gestor Teste',
   criadoEm: '2026-10-20T13:30:00.000Z',
   equipamentos: [{ id: equipamentoDeTeste.id, identificacao: equipamentoDeTeste.identificacao }],

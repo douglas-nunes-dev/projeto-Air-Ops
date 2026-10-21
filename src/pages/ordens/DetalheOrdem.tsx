@@ -1,12 +1,23 @@
-import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, Pencil } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import { Ban, CalendarClock, CalendarPlus, Pencil } from 'lucide-react';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router';
+import { toast } from 'sonner';
 import { EtiquetaPrioridade, EtiquetaStatus } from '@/components/ordem/EtiquetasOrdem';
 import { CabecalhoPagina } from '@/components/pagina/CabecalhoPagina';
 import { CarregandoLista, ErroConsulta } from '@/components/pagina/EstadosConsulta';
 import { InfoItem } from '@/components/pagina/InfoItem';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DURACOES,
+  fimDoAtendimento,
+  podeAgendar,
+  podeCancelar,
+  type AgendamentoFormulario,
+  type CancelamentoFormulario,
+} from '@/domain/ordem/planejamento';
 import {
   descreverEvento,
   formatarNumeroOrdem,
@@ -18,8 +29,15 @@ import { useOrganizacao } from '@/hooks/useOrganizacao';
 import { chaves } from '@/lib/chavesConsulta';
 import { mensagemDeErro } from '@/lib/erros';
 import { formatarDataHora } from '@/lib/texto';
-import { buscarOrdem, listarEventosDaOrdem } from '@/services/ordemService';
+import {
+  agendarOrdem,
+  buscarOrdem,
+  cancelarOrdem,
+  listarEventosDaOrdem,
+} from '@/services/ordemService';
 import { NaoEncontrado } from '../NaoEncontrado';
+import { DialogoAgendar } from './DialogoAgendar';
+import { DialogoCancelar } from './DialogoCancelar';
 
 const CLASSE_LINK = 'text-primary underline-offset-4 hover:underline';
 
@@ -27,6 +45,30 @@ export function DetalheOrdem() {
   const { id = '' } = useParams();
   const organizacao = useOrganizacao();
   const consulta = useQuery({ queryKey: chaves.ordem(id), queryFn: () => buscarOrdem(id) });
+  const cache = useQueryClient();
+  const [dialogo, setDialogo] = useState<'agendar' | 'cancelar' | null>(null);
+
+  async function depoisDeMudar(mensagem: string) {
+    await Promise.all([
+      cache.invalidateQueries({ queryKey: chaves.ordem(id) }),
+      cache.invalidateQueries({ queryKey: chaves.ordens(organizacao.id) }),
+    ]);
+    setDialogo(null);
+    toast.success(mensagem);
+  }
+
+  async function agendar(ordem: Ordem, dados: AgendamentoFormulario) {
+    await agendarOrdem(ordem, dados);
+    const numero = formatarNumeroOrdem(ordem.numero);
+    await depoisDeMudar(
+      ordem.status === 'agendada' ? `${numero} reagendada.` : `${numero} agendada.`,
+    );
+  }
+
+  async function cancelar(ordem: Ordem, dados: CancelamentoFormulario) {
+    await cancelarOrdem(ordem, dados);
+    await depoisDeMudar(`${formatarNumeroOrdem(ordem.numero)} cancelada.`);
+  }
 
   if (consulta.isPending) return <CarregandoLista linhas={6} />;
   if (consulta.isError) {
@@ -36,6 +78,12 @@ export function DetalheOrdem() {
   if (!ordem) return <NaoEncontrado oQue="Ordem de serviço" voltarPara="/ordens" feminino />;
 
   const podeEditar = organizacao.podeAbrirOrdens && podeEditarAbertura(ordem.status);
+  const mostrarAgendar = organizacao.podeAbrirOrdens && podeAgendar(ordem);
+  const mostrarCancelar = organizacao.podeAbrirOrdens && podeCancelar(ordem);
+  const fim = fimDoAtendimento(ordem);
+  const duracao =
+    DURACOES.find((item) => item.minutos === ordem.duracaoMinutos)?.rotulo ??
+    `${ordem.duracaoMinutos} minutos`;
 
   return (
     <>
@@ -50,16 +98,52 @@ export function DetalheOrdem() {
           </span>
         }
         acoes={
-          podeEditar && (
-            <Button asChild variant="outline">
-              <Link to={`/ordens/${ordem.id}/editar`}>
-                <Pencil />
-                Editar
-              </Link>
-            </Button>
-          )
+          <>
+            {mostrarAgendar && (
+              <Button onClick={() => setDialogo('agendar')}>
+                <CalendarPlus />
+                {ordem.status === 'agendada' ? 'Reagendar' : 'Agendar'}
+              </Button>
+            )}
+            {podeEditar && (
+              <Button asChild variant="outline">
+                <Link to={`/ordens/${ordem.id}/editar`}>
+                  <Pencil />
+                  Editar
+                </Link>
+              </Button>
+            )}
+            {mostrarCancelar && (
+              <Button variant="outline" onClick={() => setDialogo('cancelar')}>
+                <Ban />
+                Cancelar OS
+              </Button>
+            )}
+          </>
         }
       />
+
+      <DialogoAgendar
+        ordem={ordem}
+        aberto={dialogo === 'agendar'}
+        aoMudarAberto={(aberto) => setDialogo(aberto ? 'agendar' : null)}
+        aoSalvar={(dados) => agendar(ordem, dados)}
+      />
+      <DialogoCancelar
+        ordem={ordem}
+        aberto={dialogo === 'cancelar'}
+        aoMudarAberto={(aberto) => setDialogo(aberto ? 'cancelar' : null)}
+        aoSalvar={(dados) => cancelar(ordem, dados)}
+      />
+
+      {ordem.status === 'cancelada' && ordem.motivoCancelamento && (
+        <div className="mb-6 flex items-start gap-2 rounded-lg border bg-background p-4 text-sm">
+          <Ban className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <p>
+            <span className="font-medium">Cancelada.</span> Motivo: {ordem.motivoCancelamento}
+          </p>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 self-start lg:col-span-1">
@@ -90,11 +174,17 @@ export function DetalheOrdem() {
                 <InfoItem rotulo="Agendada para">
                   {ordem.agendadaPara ? formatarDataHora(ordem.agendadaPara) : 'A definir'}
                 </InfoItem>
+                {ordem.agendadaPara && (
+                  <InfoItem rotulo="Duração prevista">
+                    {duracao}
+                    {fim && ` (até ${format(fim, 'HH:mm')})`}
+                  </InfoItem>
+                )}
               </dl>
-              {!ordem.agendadaPara && (
+              {!ordem.agendadaPara && mostrarAgendar && (
                 <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
                   <CalendarClock className="size-4 shrink-0" aria-hidden />
-                  Agendar e atribuir o técnico chega na etapa 3 (planejamento).
+                  Use &quot;Agendar&quot; para escolher o técnico, o dia e o horário.
                 </p>
               )}
             </CardContent>

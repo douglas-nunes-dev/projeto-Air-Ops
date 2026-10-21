@@ -1,3 +1,4 @@
+import type { DadosAgendamento } from '@/domain/ordem/planejamento';
 import type { DadosOrdem, EventoOrdem, Ordem } from '@/domain/ordem/tipos';
 
 // Toda falha deve ser lançada como ErroDados.
@@ -9,4 +10,7 @@ export interface OrdemRepository {
   abrir(organizacaoId: string, dados: DadosOrdem): Promise<Ordem>;
   editar(id: string, dados: DadosOrdem): Promise<Ordem>;
   listarEventos(ordemId: string): Promise<EventoOrdem[]>;
+  /** Agenda ou reagenda. Passa pelo servidor, que confere papel e transição (seção 11). */
+  agendar(id: string, dados: DadosAgendamento): Promise<void>;
+  cancelar(id: string, motivo: string): Promise<void>;
 }

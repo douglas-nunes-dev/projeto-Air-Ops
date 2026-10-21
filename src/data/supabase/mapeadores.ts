@@ -160,6 +160,8 @@ export function mapearOrdem(linha: LinhaOrdem): Ordem {
     tecnicoId: linha.tecnico_id,
     tecnicoNome: nomeDaPessoa(linha.tecnico?.usuario ?? null),
     agendadaPara: linha.agendada_para,
+    duracaoMinutos: linha.duracao_minutos,
+    motivoCancelamento: linha.motivo_cancelamento,
     abertaPorNome: nomeDaPessoa(linha.autor),
     criadoEm: linha.criado_em,
     equipamentos: linha.equipamentos

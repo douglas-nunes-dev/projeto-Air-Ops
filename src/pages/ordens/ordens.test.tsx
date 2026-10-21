@@ -23,7 +23,7 @@ vi.mock('@/services/ordemService');
 vi.mock('@/services/organizacaoService');
 
 const tecnico = {
-  usuarioId: 'tecnico-1',
+  usuarioId: '00000000-0000-4000-8000-000000000003',
   nome: 'João Técnico',
   papeis: ['tecnico' as const],
   ativo: true,

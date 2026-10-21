@@ -55,7 +55,7 @@ type ItemMenu = {
 const ITENS_MENU: ItemMenu[] = [
   { rotulo: 'Painel', icone: LayoutDashboard, para: '/' },
   { rotulo: 'Ordens de serviço', icone: ClipboardList, para: '/ordens' },
-  { rotulo: 'Agenda', icone: CalendarDays },
+  { rotulo: 'Agenda', icone: CalendarDays, para: '/agenda' },
   { rotulo: 'Clientes', icone: Users, para: '/clientes' },
   { rotulo: 'Equipamentos', icone: AirVent, para: '/equipamentos' },
   { rotulo: 'Configurações', icone: Settings },

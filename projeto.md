@@ -187,10 +187,9 @@ cancelada    → (final)
 
 ### Painel operacional (MVP)
 
-- **Cartões de resumo:** OS abertas, OS atrasadas (vermelho), atendimentos de hoje, preventivas vencendo em 30 dias. Clicar abre a lista já filtrada.
-- **Agenda do dia** por técnico.
-- **OS atrasadas.**
-- **Preventivas vencendo**, com botão "Gerar OS".
+- **Cartões de resumo:** OS em andamento, OS atrasadas (vermelho), atendimentos de hoje, OS urgentes, clientes e equipamentos; preventivas vencendo em 30 dias chegam na etapa 8. Clicar abre a lista já filtrada (ou a agenda do dia).
+- **Agenda de hoje:** atendimentos do dia em ordem de horário, com técnico e status; horário em vermelho quando atrasado.
+- **Preventivas vencendo**, com botão "Gerar OS" (etapa 8).
 
 **Dashboard com gráficos fica para a fase 2:** OS por mês, tempo médio de atendimento, ranking de clientes, rentabilidade.
 
@@ -409,6 +408,7 @@ src/
       transicoes.ts          ✅ fluxo de status da seção 4
       filtros.ts             ✅ filtros da lista (situação, prioridade, técnico, período)
       preenchimento.ts       ✅ OS aberta a partir do cliente ou do equipamento
+      planejamento.ts        ✅ agendar, cancelar, atrasada, de hoje, conflito de horário
     ia/
       promptRascunhoOS.ts
   services/                  ← o que as telas usam
@@ -429,7 +429,7 @@ src/
       mapeadores.ts          ✅ banco (snake_case) ↔ domínio (camelCase)
       erros.ts               ✅ erros do Postgres → ErroDados com mensagem em português
     api/                     ← implementação futura (API Node)
-  pages/                     ✅ auth/, clientes/, equipamentos/, ordens/
+  pages/                     ✅ auth/, clientes/, equipamentos/, ordens/, agenda/
   components/
     ui/                      ✅ shadcn (só visual)
     layout/                  ✅ menu lateral (com rodapé de saudação e clima), busca geral, empresa do usuário
@@ -444,7 +444,8 @@ supabase/
   migrations/                ✅ SQL versionado
   tests/                     ✅ testes de RLS e regras do banco (PGlite)
   seed.sql                   ✅ dados de exemplo fictícios
-  functions/                 ← Edge Functions (finas, chamam domain/)
+  functions/                 ✅ Edge Functions (finas, chamam domain/)
+    alterar-status-ordem/    ✅ agendar, reagendar e cancelar (index.ts = Deno; regras.ts = TS puro)
 docs/
   pdf/                       ← mockups, roteiro de entrevista e materiais de referência
   imagens/                   ← identidade visual (logos)
@@ -480,6 +481,7 @@ Todo o TypeScript do app fica em `src/`. A única exceção são os testes do ba
 | Desenvolver (a tela se atualiza ao salvar) | `npm run dev` | `http://localhost:5173` |
 | Ver a versão final e instalar como app (PWA) | `npm run build` e depois `npm run preview` | `http://localhost:4173` no Chrome ou Edge → ícone de instalar na barra de endereço |
 | Rodar os testes | `npm test` (tudo) ou `npm run test:banco` (só banco) | Terminal |
+| Publicar uma Edge Function na nuvem | `npx supabase functions deploy <nome> --use-api` (sem Docker) | Terminal |
 
 **Ver dentro do VS Code**
 
@@ -503,7 +505,7 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 | `clientes` | Quem a prestadora atende |
 | `locais_atendimento` | Endereços, unidades e setores do cliente |
 | `equipamentos` | Identificação, marca/modelo, capacidade, série, `periodicidade_dias`, `proxima_manutencao` |
-| `ordens_servico` | Cliente, local, problema, prioridade, status, datas, técnico, `os_origem_id` (retorno) |
+| `ordens_servico` | Cliente, local, problema, prioridade, status, técnico, horário agendado, `duracao_minutos`, `motivo_cancelamento`, `os_origem_id` (retorno) |
 | `ordem_servico_equipamentos` | Equipamentos atendidos na OS (uma preventiva pode cobrir vários) |
 | `ordem_servico_eventos` | Histórico de status, atribuições e alterações relevantes |
 | `ordem_servico_itens` | Atividades e horas executadas |
@@ -533,6 +535,8 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 - **Número da OS** (`numero`) sequencial dentro de cada empresa ("OS 42"), dado pelo banco num contador por empresa (`privado.contadores_ordem`); duas OS abertas ao mesmo tempo nunca repetem o número.
 - **Abrir e editar OS numa só transação:** as funções `abrir_ordem_servico` e `editar_ordem_servico` gravam a OS e os equipamentos juntos (ou tudo, ou nada). Rodam com as permissões de quem chama (passam pelo RLS) e não têm regra de negócio, só agrupam as gravações. Na API Node, viram uma transação comum.
 - **Histórico pelo banco:** abertura e edição de OS geram a linha em `ordem_servico_eventos` por gatilho, com quem fez e o que mudou. O app não grava no histórico diretamente.
+- **Mudança de status:** gravada só pela função `registrar_mudanca_status` (OS e histórico na mesma transação), que só a chave de serviço da Edge Function executa. Ela recebe o status esperado: se outra pessoa mudou a OS no meio do caminho, nada é gravado.
+- **Planejamento:** `duracao_minutos` (padrão 60) monta a agenda; OS `agendada` sempre tem técnico e horário, e OS `cancelada` sempre tem `motivo_cancelamento` (constraints).
 - CPF/CNPJ, telefone e CEP guardados **só com dígitos**; a pontuação é colocada na tela.
 
 ---
@@ -567,6 +571,7 @@ As permissões da seção 5 são garantidas **no RLS**, não só escondendo bot�
 ### Operações sensíveis no servidor
 
 - Mudança de status, conclusão, cancelamento e assinatura passam por uma **Edge Function** que reutiliza `src/domain/ordem/transicoes.ts`, confere organização e papel do usuário e grava o evento em `ordem_servico_eventos`.
+  - **Feito na etapa 3:** `alterar-status-ordem` agenda, reagenda e cancela. O `transicoes.ts` não tem importações, por isso o Deno usa o mesmo arquivo do app (a publicação leva o arquivo de `src/` junto). A checagem automática de token do Supabase está desligada (`verify_jwt = false` no `config.toml`) porque a função confere o login com `auth.getUser`; quem não é da empresa recebe "não encontrada".
 - O usuário comum **não pode alterar a coluna `status` diretamente** (permissão de coluna no banco); só a Edge Function altera.
 - OS `concluida` ou `cancelada` não pode mais ser editada; a assinatura não pode ser trocada depois de registrada.
 - Isso respeita a regra 12 da seção 7: o banco só bloqueia; a regra de negócio continua em TypeScript.
@@ -635,8 +640,8 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes
 | 0. Fundação | Projeto Vite, estrutura de pastas, ESLint com a regra de importação, Supabase CLI, migrations, login, organizações, usuários, RLS e permissões por papel testadas, base de segurança da seção 11 | ✅ Concluída |
 | 1. Cadastros | Clientes, locais e equipamentos | ✅ Concluída |
 | 2. Abertura de OS | Formulário de abertura e lista com filtros | ✅ Concluída |
-| 3. Planejamento | Agendamento, atribuição e agenda por técnico | ⏳ Próxima |
-| 4. Execução | Tela do técnico: diagnóstico, checklist, tempo, fotos com fila | |
+| 3. Planejamento | Agendamento, atribuição e agenda por técnico | ✅ Concluída |
+| 4. Execução | Tela do técnico: diagnóstico, checklist, tempo, fotos com fila | ⏳ Próxima |
 | 5. Conclusão | Assinatura, revisão, encerramento e PDF | |
 | 6. Histórico | Linha do tempo por equipamento e por cliente | |
 | 7. IA | Mensagem → rascunho de OS | |
@@ -694,6 +699,20 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes
 > **Etapa 2 concluída.** Campos obrigatórios da OS decididos: cliente, local, tipo de serviço, prioridade e problema relatado; equipamentos e solicitante são opcionais. Cancelar, agendar e atribuir técnico são mudanças de status e chegam na etapa 3, pela Edge Function da seção 11. O filtro por técnico já existe, mas só faz diferença depois que a etapa 3 permitir atribuir técnicos. O vínculo de retorno (`os_origem_id`) fica para quando houver OS concluídas (etapa 5).
 
 > **Extra depois da etapa 2:** rodapé do menu lateral com saudação, primeiro nome, relógio e clima da cidade onde está o computador (seções 6 e 11).
+
+### Checklist da etapa 3
+
+- [x] Migration: `duracao_minutos`, `motivo_cancelamento`, evento `reagendamento`, regras "agendada tem técnico e horário" e "cancelada tem motivo", e a função `registrar_mudanca_status` (só para a chave de serviço)
+- [x] Edge Function `alterar-status-ordem` (agendar, reagendar e cancelar): confere login, empresa, papel (admin e gestor), técnico ativo e transição pela `transicoes.ts`; regras em `regras.ts`, testadas com o Vitest
+- [x] Testes do banco (`supabase/tests/planejamento.test.ts`) e das regras da função (`supabase/tests/regrasStatus.test.ts`); o banco de teste imita a chave de serviço
+- [x] Domínio: formulário de agendamento e de cancelamento, OS atrasada, de hoje e aviso de conflito de horário do técnico (`planejamento.ts`)
+- [x] Detalhe da OS: botões "Agendar"/"Reagendar" e "Cancelar OS" (com motivo), duração prevista e motivo do cancelamento
+- [x] Agenda (FullCalendar v7): dia, semana e lista; filtro por técnico; arrastar ou esticar um bloco reagenda; lista "Aguardando agendamento"; carregada só quando a tela é aberta
+- [x] Lista de OS com filtro "Atrasadas" e coluna "Agendada para"; painel com OS atrasadas, atendimentos de hoje e agenda do dia
+- [x] Migration aplicada na nuvem (`supabase db push`) e Edge Function publicada (`npx supabase functions deploy alterar-status-ordem --use-api`); sem login, a função responde 401
+- [ ] **Teste no app de verdade** (com login): agendar a OS 1, reagendar arrastando na Agenda e cancelar uma OS
+
+> **Etapa 3 concluída.** Atrasada = agendada cujo horário de início passou sem a execução começar. O aviso de conflito de horário não bloqueia (às vezes o técnico atende dois chamados no mesmo prédio). Pausar e iniciar a execução chegam na etapa 4, pela mesma Edge Function.
 
 ### Checklist antes do piloto
 

@@ -347,7 +347,10 @@ describe('edição', () => {
   it('OS concluída ou cancelada não pode mais ser editada', async () => {
     const id = await abrirOrdemA();
     for (const status of ['concluida', 'cancelada']) {
-      await banco.query(`update ordens_servico set status = '${status}' where id = $1`, [id]);
+      await banco.query(
+        `update ordens_servico set status = '${status}', motivo_cancelamento = 'Teste' where id = $1`,
+        [id],
+      );
 
       const editar = await consultarComo(banco, adminA, EDITAR, parametrosEdicao(id, []));
       expect(editar.erro, status).toMatch(/sem permissão/);

@@ -31,7 +31,7 @@ import {
 import { tecnicosDaEmpresa } from '@/domain/organizacao/tipos';
 import { useOrganizacao } from '@/hooks/useOrganizacao';
 import { chaves } from '@/lib/chavesConsulta';
-import { formatarDia } from '@/lib/texto';
+import { formatarDataHora, formatarDia } from '@/lib/texto';
 import { listarOrdens } from '@/services/ordemService';
 import { listarMembros } from '@/services/organizacaoService';
 
@@ -94,6 +94,13 @@ const COLUNAS = coluna.columns([
     id: 'tecnico',
     header: 'Técnico',
     cell: (info) => info.getValue() || <span className="text-muted-foreground">A definir</span>,
+  }),
+  coluna.accessor((ordem) => (ordem.agendadaPara ? formatarDataHora(ordem.agendadaPara) : ''), {
+    id: 'agendadaPara',
+    header: 'Agendada para',
+    sortFn: (a, b) =>
+      (a.original.agendadaPara ?? '9999').localeCompare(b.original.agendadaPara ?? '9999'),
+    cell: (info) => info.getValue() || <span className="text-muted-foreground">—</span>,
   }),
   coluna.accessor((ordem) => formatarDia(ordem.criadoEm), {
     id: 'abertaEm',
@@ -171,6 +178,7 @@ export function ListaOrdens() {
               }
             >
               <option value="em_andamento">Em andamento</option>
+              <option value="atrasadas">Atrasadas</option>
               {STATUS_ORDEM.map((status) => (
                 <option key={status} value={status}>
                   {ROTULOS_STATUS[status]}
@@ -263,7 +271,7 @@ export function ListaOrdens() {
           busca={busca}
           aoClicarLinha={(ordem) => navegar(`/ordens/${ordem.id}`)}
           rotuloLinha={(ordem) => `Abrir ${formatarNumeroOrdem(ordem.numero)}`}
-          colunasSoNoComputador={['prioridade', 'tecnico', 'abertaEm']}
+          colunasSoNoComputador={['prioridade', 'tecnico', 'agendadaPara', 'abertaEm']}
           mensagemVazia={
             busca || filtroAtivo(filtro)
               ? 'Nenhuma OS encontrada com esses filtros.'

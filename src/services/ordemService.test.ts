@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErroDados } from '@/domain/erros';
 import { ORDEM_FORMULARIO_VAZIO, ordemParaFormulario } from '@/domain/ordem/tipos';
 import { ordemDeTeste } from '@/test/dados';
-import { abrirOrdem, editarOrdem } from './ordemService';
+import { abrirOrdem, agendarOrdem, cancelarOrdem, editarOrdem } from './ordemService';
 
 // O service só conhece a interface: aqui ela é trocada por uma versão falsa.
 const repositorios = vi.hoisted(() => ({
@@ -12,6 +12,8 @@ const repositorios = vi.hoisted(() => ({
     abrir: vi.fn(),
     editar: vi.fn(),
     listarEventos: vi.fn(),
+    agendar: vi.fn(),
+    cancelar: vi.fn(),
   },
 }));
 
@@ -55,6 +57,41 @@ describe('ordemService', () => {
     expect(repositorios.ordemRepository.editar).toHaveBeenCalledWith(
       ordemDeTeste.id,
       expect.objectContaining({ prioridade: 'baixa' }),
+    );
+  });
+
+  it('agendarOrdem manda o horário em ISO para o servidor', async () => {
+    const tecnicoId = '00000000-0000-4000-8000-000000000003';
+    await agendarOrdem(ordemDeTeste, {
+      tecnicoId,
+      data: '2026-10-22',
+      hora: '14:00',
+      duracaoMinutos: 90,
+    });
+    expect(repositorios.ordemRepository.agendar).toHaveBeenCalledWith(ordemDeTeste.id, {
+      tecnicoId,
+      agendadaPara: new Date(2026, 9, 22, 14).toISOString(),
+      duracaoMinutos: 90,
+    });
+  });
+
+  it('não agenda OS em execução nem cancela OS encerrada', async () => {
+    const formulario = { tecnicoId: '', data: '', hora: '', duracaoMinutos: 60 };
+    await expect(
+      agendarOrdem({ ...ordemDeTeste, status: 'em_execucao' }, formulario),
+    ).rejects.toThrow(/Pause antes de reagendar/);
+    await expect(
+      cancelarOrdem({ ...ordemDeTeste, status: 'concluida' }, { motivo: 'Qualquer motivo' }),
+    ).rejects.toBeInstanceOf(ErroDados);
+    expect(repositorios.ordemRepository.agendar).not.toHaveBeenCalled();
+    expect(repositorios.ordemRepository.cancelar).not.toHaveBeenCalled();
+  });
+
+  it('cancelarOrdem manda o motivo sem espaços sobrando', async () => {
+    await cancelarOrdem(ordemDeTeste, { motivo: '  Aberta em duplicidade ' });
+    expect(repositorios.ordemRepository.cancelar).toHaveBeenCalledWith(
+      ordemDeTeste.id,
+      'Aberta em duplicidade',
     );
   });
 });

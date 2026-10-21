@@ -1,5 +1,10 @@
-import type { PostgrestError } from '@supabase/supabase-js';
-import { ErroDados } from '@/domain/erros';
+import {
+  FunctionsFetchError,
+  FunctionsHttpError,
+  type PostgrestError,
+} from '@supabase/supabase-js';
+import { ErroDados, type MotivoErroDados } from '@/domain/erros';
+import { obterClienteSupabase } from './client';
 
 // Mensagens para as restrições "não pode repetir" criadas nas migrations.
 const DUPLICADOS: Record<string, { campo: string; mensagem: string }> = {
@@ -62,4 +67,35 @@ export function dadosOuNulo<T>(resposta: {
 
 export function exigirSucesso(resposta: { error: PostgrestError | null }): void {
   if (resposta.error) throw converterErroBanco(resposta.error);
+}
+
+// Códigos que as Edge Functions devolvem (ex.: supabase/functions/alterar-status-ordem/regras.ts).
+const MOTIVOS_DAS_FUNCOES: Record<string, MotivoErroDados> = {
+  sem_permissao: 'sem_permissao',
+  nao_encontrado: 'nao_encontrado',
+  transicao_invalida: 'dados_invalidos',
+  dados_invalidos: 'dados_invalidos',
+};
+
+async function converterErroFuncao(erro: unknown): Promise<ErroDados> {
+  if (erro instanceof FunctionsFetchError) return new ErroDados('sem_conexao', { cause: erro });
+  if (erro instanceof FunctionsHttpError) {
+    const corpo: unknown = await (erro.context as Response).json().catch(() => null);
+    if (corpo && typeof corpo === 'object') {
+      const { codigo, mensagem, campo } = corpo as Record<string, unknown>;
+      const motivo = typeof codigo === 'string' ? MOTIVOS_DAS_FUNCOES[codigo] : undefined;
+      return new ErroDados(motivo ?? 'desconhecido', {
+        mensagem: typeof mensagem === 'string' ? mensagem : undefined,
+        campo: typeof campo === 'string' ? campo : undefined,
+        cause: erro,
+      });
+    }
+  }
+  return new ErroDados('desconhecido', { cause: erro });
+}
+
+/** Chama uma Edge Function e converte a recusa dela em ErroDados, com a mensagem do servidor. */
+export async function chamarFuncao(nome: string, corpo: Record<string, unknown>): Promise<void> {
+  const { error } = await obterClienteSupabase().functions.invoke(nome, { body: corpo });
+  if (error) throw await converterErroFuncao(error);
 }

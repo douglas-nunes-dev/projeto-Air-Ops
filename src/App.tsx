@@ -1,5 +1,7 @@
+import { lazy, Suspense } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router';
 import { RotaProtegida } from '@/components/auth/RotaProtegida';
+import { CarregandoLista } from '@/components/pagina/EstadosConsulta';
 import { LayoutEscritorio } from '@/components/layout/LayoutEscritorio';
 import { OrganizacaoProvider } from '@/components/layout/OrganizacaoProvider';
 import { Entrar } from '@/pages/auth/Entrar';
@@ -19,6 +21,11 @@ import { EditarOrdem } from '@/pages/ordens/EditarOrdem';
 import { ListaOrdens } from '@/pages/ordens/ListaOrdens';
 import { NovaOrdem } from '@/pages/ordens/NovaOrdem';
 import { ROTA_REDEFINIR_SENHA } from '@/services/authService';
+
+// O calendário é pesado: só é baixado quando alguém abre a Agenda.
+const Agenda = lazy(() =>
+  import('@/pages/agenda/Agenda').then((modulo) => ({ default: modulo.Agenda })),
+);
 
 // Área logada: confere a sessão, carrega a empresa do usuário e mostra o menu.
 function AreaLogada() {
@@ -43,6 +50,14 @@ function App() {
             <Route path="/ordens/nova" element={<NovaOrdem />} />
             <Route path="/ordens/:id" element={<DetalheOrdem />} />
             <Route path="/ordens/:id/editar" element={<EditarOrdem />} />
+            <Route
+              path="/agenda"
+              element={
+                <Suspense fallback={<CarregandoLista linhas={8} />}>
+                  <Agenda />
+                </Suspense>
+              }
+            />
             <Route path="/clientes" element={<ListaClientes />} />
             <Route path="/clientes/novo" element={<NovoCliente />} />
             <Route path="/clientes/:id" element={<DetalheCliente />} />

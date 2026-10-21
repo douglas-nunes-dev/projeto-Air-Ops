@@ -1,16 +1,9 @@
 import { z } from 'zod';
 import { textoObrigatorio, textoOpcional } from '@/domain/comum/campos';
+import { STATUS_ORDEM, type StatusOrdem } from './transicoes';
 
-export const STATUS_ORDEM = [
-  'aberta',
-  'agendada',
-  'em_execucao',
-  'pausada',
-  'concluida',
-  'cancelada',
-] as const;
-
-export type StatusOrdem = (typeof STATUS_ORDEM)[number];
+// Definidos em transicoes.ts (arquivo sem importações, usado também pela Edge Function).
+export { STATUS_ORDEM, type StatusOrdem };
 
 export const ROTULOS_STATUS: Record<StatusOrdem, string> = {
   aberta: 'Aberta',
@@ -64,15 +57,19 @@ export type Ordem = {
   status: StatusOrdem;
   tecnicoId: string | null;
   tecnicoNome: string | null;
-  /** Data e hora em ISO 8601 (preenchida no planejamento, etapa 3). */
+  /** Data e hora em ISO 8601 (preenchida no planejamento). */
   agendadaPara: string | null;
+  /** Tempo previsto do atendimento, para a agenda. */
+  duracaoMinutos: number;
+  motivoCancelamento: string | null;
   abertaPorNome: string | null;
   /** Data e hora da abertura, em ISO 8601. */
   criadoEm: string;
   equipamentos: EquipamentoDaOrdem[];
 };
 
-export type TipoEventoOrdem = 'abertura' | 'edicao' | 'mudanca_status' | 'atribuicao';
+export type TipoEventoOrdem =
+  'abertura' | 'edicao' | 'mudanca_status' | 'reagendamento' | 'atribuicao';
 
 /** Uma linha do histórico da OS. */
 export type EventoOrdem = {
@@ -135,7 +132,15 @@ export function descreverEvento(evento: EventoOrdem): string {
       return evento.descricao ?? 'OS editada';
     case 'atribuicao':
       return evento.descricao ?? 'Técnico atribuído';
+    case 'reagendamento':
+      return evento.descricao ?? 'OS reagendada';
     case 'mudanca_status': {
+      // A descrição já diz o que houve ("Agendada para…"); no cancelamento, só traz o motivo.
+      if (evento.descricao) {
+        return evento.statusNovo === 'cancelada'
+          ? `OS cancelada. ${evento.descricao}`
+          : evento.descricao;
+      }
       const de = evento.statusAnterior ? ROTULOS_STATUS[evento.statusAnterior] : '—';
       const para = evento.statusNovo ? ROTULOS_STATUS[evento.statusNovo] : '—';
       return `Status: ${de} → ${para}`;

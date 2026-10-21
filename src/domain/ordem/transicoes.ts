@@ -1,7 +1,17 @@
-import type { StatusOrdem } from './tipos';
+// Fluxo da OS (seção 4 do projeto.md). TS puro e SEM importações: o mesmo arquivo roda
+// na tela, na Edge Function de mudança de status (Deno) e, no futuro, na API Node.
 
-// Fluxo da OS (seção 4 do projeto.md). TS puro: o mesmo código roda na tela,
-// na Edge Function de mudança de status (etapa 3) e, no futuro, na API Node.
+export const STATUS_ORDEM = [
+  'aberta',
+  'agendada',
+  'em_execucao',
+  'pausada',
+  'concluida',
+  'cancelada',
+] as const;
+
+export type StatusOrdem = (typeof STATUS_ORDEM)[number];
+
 const TRANSICOES: Record<StatusOrdem, readonly StatusOrdem[]> = {
   aberta: ['agendada', 'cancelada'],
   // agendada → agendada é o reagendamento.

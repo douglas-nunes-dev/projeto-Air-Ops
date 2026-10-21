@@ -1,7 +1,8 @@
 import type { OrdemRepository } from '../repositories/OrdemRepository';
+import type { DadosAgendamento } from '@/domain/ordem/planejamento';
 import type { DadosOrdem, EventoOrdem, Ordem } from '@/domain/ordem/tipos';
 import { obterClienteSupabase } from './client';
-import { dadosOuNulo, exigirDados, exigirSucesso } from './erros';
+import { chamarFuncao, dadosOuNulo, exigirDados, exigirSucesso } from './erros';
 import { argumentosOrdem, COLUNAS_ORDEM, mapearEvento, mapearOrdem } from './mapeadores';
 
 export class SupabaseOrdemRepository implements OrdemRepository {
@@ -56,6 +57,14 @@ export class SupabaseOrdemRepository implements OrdemRepository {
         .order('criado_em'),
     );
     return linhas.map(mapearEvento);
+  }
+
+  async agendar(id: string, dados: DadosAgendamento): Promise<void> {
+    await chamarFuncao('alterar-status-ordem', { acao: 'agendar', ordemId: id, ...dados });
+  }
+
+  async cancelar(id: string, motivo: string): Promise<void> {
+    await chamarFuncao('alterar-status-ordem', { acao: 'cancelar', ordemId: id, motivo });
   }
 
   private async exigirOrdem(id: string): Promise<Ordem> {

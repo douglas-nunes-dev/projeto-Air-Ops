@@ -130,3 +130,19 @@
     @apply font-sans;
   }
 }
+
+/* Agenda (FullCalendar, tema "classic"): cores da marca no lugar das do tema. */
+.calendario-airops {
+  --fc-classic-primary: var(--primary);
+  --fc-classic-primary-foreground: var(--primary-foreground);
+  --fc-classic-button: var(--primary);
+  --fc-classic-button-border: var(--primary);
+  --fc-classic-button-strong: oklch(0.42 0.2 263);
+  --fc-classic-button-strong-border: oklch(0.42 0.2 263);
+  --fc-classic-background: var(--background);
+  --fc-classic-foreground: var(--foreground);
+  --fc-classic-muted-foreground: var(--muted-foreground);
+  --fc-classic-border: var(--border);
+  --fc-classic-today: oklch(0.5 0.21 263 / 6%);
+  font-size: 0.875rem;
+}

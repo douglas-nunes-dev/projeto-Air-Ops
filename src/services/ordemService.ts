@@ -1,6 +1,14 @@
 import { ordemRepository } from '@/data';
 import { ErroDados } from '@/domain/erros';
 import {
+  AgendamentoFormularioSchema,
+  CancelamentoFormularioSchema,
+  podeAgendar,
+  podeCancelar,
+  type AgendamentoFormulario,
+  type CancelamentoFormulario,
+} from '@/domain/ordem/planejamento';
+import {
   OrdemFormularioSchema,
   type EventoOrdem,
   type Ordem,
@@ -35,4 +43,31 @@ export async function editarOrdem(ordem: Ordem, formulario: OrdemFormulario): Pr
 
 export async function listarEventosDaOrdem(ordemId: string): Promise<EventoOrdem[]> {
   return ordemRepository.listarEventos(ordemId);
+}
+
+// Planejamento (etapa 3). As checagens daqui dão retorno rápido na tela;
+// quem garante de verdade é a Edge Function "alterar-status-ordem".
+
+export async function agendarOrdem(ordem: Ordem, formulario: AgendamentoFormulario): Promise<void> {
+  if (!podeAgendar(ordem)) {
+    throw new ErroDados('dados_invalidos', {
+      mensagem:
+        ordem.status === 'em_execucao'
+          ? 'A OS está em execução. Pause antes de reagendar.'
+          : 'Esta OS já foi encerrada e não pode ser agendada.',
+    });
+  }
+  await ordemRepository.agendar(ordem.id, AgendamentoFormularioSchema.parse(formulario));
+}
+
+export async function cancelarOrdem(
+  ordem: Ordem,
+  formulario: CancelamentoFormulario,
+): Promise<void> {
+  if (!podeCancelar(ordem)) {
+    throw new ErroDados('dados_invalidos', {
+      mensagem: 'Esta OS já foi encerrada e não pode ser cancelada.',
+    });
+  }
+  await ordemRepository.cancelar(ordem.id, CancelamentoFormularioSchema.parse(formulario).motivo);
 }

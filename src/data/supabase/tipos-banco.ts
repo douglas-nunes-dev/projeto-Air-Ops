@@ -285,8 +285,10 @@ export type Database = {
           atualizado_em: string;
           cliente_id: string;
           criado_em: string;
+          duracao_minutos: number;
           id: string;
           local_id: string;
+          motivo_cancelamento: string | null;
           numero: number;
           organizacao_id: string;
           prioridade: Database['public']['Enums']['prioridade_ordem'];
@@ -302,8 +304,10 @@ export type Database = {
           atualizado_em?: string;
           cliente_id: string;
           criado_em?: string;
+          duracao_minutos?: number;
           id?: string;
           local_id: string;
+          motivo_cancelamento?: string | null;
           numero: number;
           organizacao_id: string;
           prioridade?: Database['public']['Enums']['prioridade_ordem'];
@@ -319,8 +323,10 @@ export type Database = {
           atualizado_em?: string;
           cliente_id?: string;
           criado_em?: string;
+          duracao_minutos?: number;
           id?: string;
           local_id?: string;
+          motivo_cancelamento?: string | null;
           numero?: number;
           organizacao_id?: string;
           prioridade?: Database['public']['Enums']['prioridade_ordem'];
@@ -489,6 +495,21 @@ export type Database = {
         };
         Returns: undefined;
       };
+      registrar_mudanca_status: {
+        Args: {
+          p_agendada_para: string;
+          p_descricao: string;
+          p_duracao_minutos: number;
+          p_motivo_cancelamento: string;
+          p_ordem_id: string;
+          p_status_esperado: Database['public']['Enums']['status_ordem'];
+          p_status_novo: Database['public']['Enums']['status_ordem'];
+          p_tecnico_id: string;
+          p_tipo_evento: Database['public']['Enums']['tipo_evento_ordem'];
+          p_usuario_id: string;
+        };
+        Returns: undefined;
+      };
     };
     Enums: {
       papel_usuario: 'admin' | 'gestor' | 'tecnico';
@@ -507,7 +528,7 @@ export type Database = {
         | 'camara_fria'
         | 'balcao_refrigerado'
         | 'outro';
-      tipo_evento_ordem: 'abertura' | 'edicao' | 'mudanca_status' | 'atribuicao';
+      tipo_evento_ordem: 'abertura' | 'edicao' | 'mudanca_status' | 'atribuicao' | 'reagendamento';
       tipo_pessoa: 'fisica' | 'juridica';
       tipo_servico: 'corretiva' | 'preventiva' | 'instalacao' | 'outro';
     };
@@ -648,7 +669,7 @@ export const Constants = {
         'balcao_refrigerado',
         'outro',
       ],
-      tipo_evento_ordem: ['abertura', 'edicao', 'mudanca_status', 'atribuicao'],
+      tipo_evento_ordem: ['abertura', 'edicao', 'mudanca_status', 'atribuicao', 'reagendamento'],
       tipo_pessoa: ['fisica', 'juridica'],
       tipo_servico: ['corretiva', 'preventiva', 'instalacao', 'outro'],
     },
