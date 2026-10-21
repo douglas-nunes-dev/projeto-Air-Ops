@@ -679,7 +679,7 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes
 | 2. Abertura de OS | Formulário de abertura e lista com filtros | ✅ Concluída |
 | 3. Planejamento | Agendamento, atribuição e agenda por técnico | ✅ Concluída |
 | 4. Execução | Tela do técnico: diagnóstico, checklist, tempo, fotos com fila | ✅ Concluída |
-| 5. Conclusão | Assinatura, revisão, encerramento e PDF | ✅ Concluída (falta o teste no celular) |
+| 5. Conclusão | Assinatura, revisão, encerramento e PDF | ✅ Concluída |
 | 6. Histórico | Linha do tempo por equipamento e por cliente | ⏳ Próxima |
 | 7. IA | Mensagem → rascunho de OS | |
 | 8. Preventiva simples | Periodicidade e lista de vencimentos | |
@@ -782,10 +782,10 @@ Decisões: **o técnico conclui direto** (sem aprovação do gestor; serve ao au
 - [x] Depois de concluída: assinatura registrada na OS (celular e escritório), "Compartilhar relatório" no celular e "Baixar relatório (PDF)" no escritório
 - [x] PDF: fonte Inter embutida (acentos, travessão, aspas do celular), quebra de página automática, rodapé com data e "Página X de Y"; conferido gerando exemplos
 - [x] Aplicado na nuvem: migration, Edge Function e tipos do banco; conclusão direta pelo banco recusada até para o técnico
-- [ ] **Teste no celular:** concluir a OS 5 com assinatura, compartilhar o relatório pelo WhatsApp e baixar o PDF no escritório
+- [x] **Teste no celular:** OS 5 concluída com assinatura (imagem no Storage, histórico "Concluída. Assinada por …"), relatório compartilhado e baixado
 - [ ] **Retorno** (`os_origem_id`: "o serviço não resolveu → nova OS vinculada à anterior", seção 4): fica para uma próxima etapa
 
-> **Etapa 5 concluída no código.** Com o teste no celular e o [checklist antes do piloto](#checklist-antes-do-piloto), o MVP pode ir para o piloto (seção 13).
+> **Etapa 5 concluída e testada no celular.** Com o teste no celular e o [checklist antes do piloto](#checklist-antes-do-piloto), o MVP pode ir para o piloto (seção 13).
 
 ### Checklist antes do piloto
 
