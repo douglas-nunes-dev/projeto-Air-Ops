@@ -164,12 +164,14 @@ cancelada    → (final)
 | Estilo | Tailwind CSS | |
 | Componentes | **shadcn/ui** (sobre Radix UI, estilo **Vega**) | Código dos componentes fica no projeto (`src/components/ui/`); só visual, sem Supabase. Formulários usam o componente `field` com React Hook Form |
 | Ícones | lucide-react | |
-| Tabelas e listas | TanStack Table | Filtros, ordenação e paginação |
+| Tabelas e listas | TanStack Table v9 | Busca sem acentos, ordenação e paginação no navegador (`src/components/tabela/`). No v9 cada recurso é registrado explicitamente |
 | Datas | date-fns (pt-BR) + calendário do shadcn | |
 | Agenda | FullCalendar v7 (`@fullcalendar/react`, versão gratuita) | Visões diária e semanal, arrastar para reagendar. Plugins importados de `@fullcalendar/react/timegrid` etc. |
 | Avisos | sonner | |
 | Gráficos (fase 2) | Recharts via shadcn charts | |
 | Fonte | Inter (`@fontsource-variable/inter`) | |
+| Campos de seleção | `<select>` nativo com o visual do shadcn | No celular abre o seletor do próprio aparelho, mais fácil de usar com o dedo |
+| Cores | Azul da marca (`--primary`) e menu lateral azul-escuro | Definidas em `src/index.css` |
 
 **Escritório (desktop) — admin e gestor**
 - Menu lateral: Painel, Ordens, Agenda, Clientes, Equipamentos, Configurações
@@ -236,6 +238,12 @@ Interfaces (data/repositories/) ← contratos: OrdemRepository, ClienteRepositor
    - Preferir código simples e explícito a soluções "espertas"; evitar tipos genéricos complexos quando um tipo direto resolve.
    - Comentários só para explicar o **porquê** de uma decisão, não o que o código já mostra.
    - Formatação automática com **Prettier** e regras do **ESLint** (`typescript-eslint`) verificadas antes de cada commit.
+
+### Erros
+
+- As telas tratam só erros do domínio: `ErroAutenticacao` (login) e `ErroDados` (leitura e gravação), em `src/domain/`.
+- A camada `data/supabase/` converte os erros do Supabase/Postgres nesses tipos, com mensagem em português (ex.: CNPJ repetido → "Já existe um cliente com este CPF/CNPJ.", indicando o campo do formulário).
+- Na migração para Node, a implementação `data/api/` faz a mesma conversão; as telas não mudam.
 
 ### Exemplo
 
@@ -379,45 +387,55 @@ Configurar o ESLint para bloquear importações do Supabase fora da pasta permit
 
 ## 9. Estrutura de pastas
 
+Itens marcados com ✅ já existem; os demais chegam nas próximas etapas.
+
 ```
 src/
   domain/                    ← TS puro: tipos, schemas Zod e regras de negócio
+    erros.ts                 ✅ ErroDados (falhas de leitura e gravação)
+    comum/campos.ts          ✅ validações reaproveitadas (texto, telefone, CEP, data)
+    auth/                    ✅ credenciais, nova senha, ErroAutenticacao
+    organizacao/             ✅ papéis e regra "pode editar cadastros"
+    cliente/                 ✅ cliente, local de atendimento, CPF/CNPJ
+    equipamento/
+      tipos.ts               ✅ tipos de equipamento, periodicidades
+      preventiva.ts          ← cálculo da próxima manutenção (etapa 8)
     ordem/
       tipos.ts
       transicoes.ts
-    equipamento/
-      tipos.ts
-      preventiva.ts          ← cálculo da próxima manutenção
-    cliente/
     ia/
       promptRascunhoOS.ts
   services/                  ← o que as telas usam
+    authService.ts           ✅
+    organizacaoService.ts    ✅
+    clienteService.ts        ✅ clientes e locais
+    equipamentoService.ts    ✅
     ordemService.ts
-    clienteService.ts
-    equipamentoService.ts
-    authService.ts
     storageService.ts
     iaService.ts
   data/
-    index.ts                 ← ÚNICO ponto que escolhe a implementação
-    repositories/            ← interfaces
-      OrdemRepository.ts
-      ClienteRepository.ts
-      EquipamentoRepository.ts
-      AuthProvider.ts
-      StorageProvider.ts
-    supabase/                ← implementação atual (único lugar com Supabase)
-      client.ts
-      mapeadores.ts
-      SupabaseOrdemRepository.ts
-      ...
+    index.ts                 ✅ ÚNICO ponto que escolhe a implementação
+    repositories/            ✅ interfaces (AuthProvider, Organizacao, Cliente, Local, Equipamento)
+    supabase/                ✅ implementação atual (único lugar com Supabase)
+      client.ts              ✅ cliente criado no primeiro uso
+      tipos-banco.ts         ✅ gerado com `npm run db:tipos` (não editar à mão)
+      mapeadores.ts          ✅ banco (snake_case) ↔ domínio (camelCase)
+      erros.ts               ✅ erros do Postgres → ErroDados com mensagem em português
     api/                     ← implementação futura (API Node)
-  pages/
+  pages/                     ✅ auth/, clientes/, equipamentos/
   components/
-  hooks/
-  lib/                       ← utilitários genéricos (datas, formatação)
+    ui/                      ✅ shadcn (só visual)
+    layout/                  ✅ menu lateral, empresa do usuário
+    formulario/              ✅ campos ligados ao React Hook Form
+    pagina/                  ✅ cabeçalho, busca, estados de carregando/erro
+    tabela/                  ✅ tabela com busca, ordenação e paginação
+  hooks/                     ✅ useSessao, useOrganizacao
+  lib/                       ✅ utilitários genéricos (texto, datas, chaves do cache)
+  test/                      ✅ preparação e dados de exemplo dos testes de tela
 supabase/
-  migrations/                ← SQL versionado
+  migrations/                ✅ SQL versionado
+  tests/                     ✅ testes de RLS e regras do banco (PGlite)
+  seed.sql                   ✅ dados de exemplo fictícios
   functions/                 ← Edge Functions (finas, chamam domain/)
 docs/
   pdf/                       ← mockups, roteiro de entrevista e materiais de referência
@@ -462,7 +480,10 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 - Nomes de tabelas e colunas em português, `snake_case`, plural nas tabelas.
 - Chaves primárias `uuid`.
 - Colunas `criado_em`, `atualizado_em` e `organizacao_id` em toda tabela de negócio.
-- Datas em `timestamptz`.
+- Datas com horário em `timestamptz`; datas sem horário (instalação, próxima manutenção) em `date`.
+- **Cadastros não são apagados pelo app:** a coluna `ativo` arquiva (some das listas, mas o histórico de atendimentos continua ligado a eles).
+- **Mesma empresa garantida pelo banco:** tabelas filhas usam chave estrangeira composta `(id, organizacao_id)` (ex.: um local só pode apontar para um cliente da mesma organização).
+- CPF/CNPJ, telefone e CEP guardados **só com dígitos**; a pontuação é colocada na tela.
 
 ---
 
@@ -475,7 +496,7 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 - Toda tabela de negócio vinculada a uma organização, com **Row Level Security** habilitado.
 - **RLS é obrigatória enquanto o navegador falar direto com o Supabase:** sem ela, qualquer usuário logado (ou anônimo, com a chave `anon`) lê os dados de todas as empresas pela API.
 - Tabelas criadas por migration **não** vêm com RLS ligada: toda migration que cria tabela inclui `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` e suas políticas. Tabela com RLS ligada e sem política fica bloqueada para todos.
-- Conferir o **Security Advisor** do painel do Supabase a cada entrega (aponta tabelas expostas sem RLS).
+- Conferir o **Security Advisor** do painel do Supabase a cada entrega (aponta tabelas expostas sem RLS). Pelo terminal: `npx supabase db advisors --linked`.
 - Políticas com `USING` (o que pode ler) **e** `WITH CHECK` (o que pode gravar): o `organizacao_id` enviado pelo cliente nunca é aceito sem conferir que o usuário pertence àquela organização.
 - Validar relações: cliente, local, equipamento e OS devem pertencer à mesma organização (constraints).
 - **Testes de acesso cruzado:** um usuário da empresa A nunca lê nem altera dados da empresa B.
@@ -491,6 +512,7 @@ As permissões da seção 5 são garantidas **no RLS**, não só escondendo bot�
 | `tecnico` | Somente as atribuídas a ele | Somente leitura | Sem acesso |
 
 - Testes automatizados também para papéis: um técnico não lê OS de outro técnico nem altera cadastros.
+- Exceção consciente: o `gestor` **lê** a lista de vínculos da empresa (`organizacao_usuarios`), porque precisa escolher o técnico ao agendar uma OS. Ele não altera vínculos nem papéis.
 
 ### Operações sensíveis no servidor
 
@@ -557,17 +579,17 @@ As permissões da seção 5 são garantidas **no RLS**, não só escondendo bot�
 
 Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes do piloto](#checklist-antes-do-piloto) completo, o MVP pode ir para o piloto.
 
-| Etapa | Entrega |
-|---|---|
-| 0. Fundação | Projeto Vite, estrutura de pastas, ESLint com a regra de importação, Supabase CLI, migrations, login, organizações, usuários, RLS e permissões por papel testadas, base de segurança da seção 11 |
-| 1. Cadastros | Clientes, locais e equipamentos |
-| 2. Abertura de OS | Formulário de abertura e lista com filtros |
-| 3. Planejamento | Agendamento, atribuição e agenda por técnico |
-| 4. Execução | Tela do técnico: diagnóstico, checklist, tempo, fotos com fila |
-| 5. Conclusão | Assinatura, revisão, encerramento e PDF |
-| 6. Histórico | Linha do tempo por equipamento e por cliente |
-| 7. IA | Mensagem → rascunho de OS |
-| 8. Preventiva simples | Periodicidade e lista de vencimentos |
+| Etapa | Entrega | Situação |
+|---|---|---|
+| 0. Fundação | Projeto Vite, estrutura de pastas, ESLint com a regra de importação, Supabase CLI, migrations, login, organizações, usuários, RLS e permissões por papel testadas, base de segurança da seção 11 | ✅ Concluída |
+| 1. Cadastros | Clientes, locais e equipamentos | ✅ Concluída |
+| 2. Abertura de OS | Formulário de abertura e lista com filtros | ⏳ Próxima |
+| 3. Planejamento | Agendamento, atribuição e agenda por técnico | |
+| 4. Execução | Tela do técnico: diagnóstico, checklist, tempo, fotos com fila | |
+| 5. Conclusão | Assinatura, revisão, encerramento e PDF | |
+| 6. Histórico | Linha do tempo por equipamento e por cliente | |
+| 7. IA | Mensagem → rascunho de OS | |
+| 8. Preventiva simples | Periodicidade e lista de vencimentos | |
 
 ### Checklist da etapa 0
 
@@ -603,6 +625,8 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes
 - [x] Layout do escritório (menu lateral, que vira menu deslizante no celular) e cores da marca
 - [x] Telas: lista, cadastro, edição e detalhe de clientes (com locais) e de equipamentos; busca sem acentos, ordenação e paginação (TanStack Table v9)
 - [x] Dados de exemplo fictícios (`supabase/seed.sql`), aplicados na nuvem com `npx supabase db query --linked -f supabase/seed.sql`
+
+> **Etapa 1 concluída.** A barra superior ainda não tem a busca global nem o botão "Nova OS" (seção 6): eles chegam na etapa 2, junto com as ordens de serviço. A linha do tempo de atendimentos do equipamento chega na etapa 6.
 
 ### Checklist antes do piloto
 
