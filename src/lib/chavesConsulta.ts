@@ -7,4 +7,8 @@ export const chaves = {
   locais: (organizacaoId: string) => ['locais', organizacaoId] as const,
   equipamentos: (organizacaoId: string) => ['equipamentos', organizacaoId] as const,
   equipamento: (id: string) => ['equipamento', id] as const,
+  membros: (organizacaoId: string) => ['membros', organizacaoId] as const,
+  ordens: (organizacaoId: string) => ['ordens', organizacaoId] as const,
+  ordem: (id: string) => ['ordem', id] as const,
+  eventosDaOrdem: (id: string) => ['ordem', id, 'eventos'] as const,
 };

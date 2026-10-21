@@ -4,6 +4,8 @@ import type { OrganizacaoDoUsuario } from '@/domain/organizacao/tipos';
 export type EstadoOrganizacao = OrganizacaoDoUsuario & {
   /** Admin e gestor cadastram e alteram; técnico só consulta (seção 11). */
   podeEditarCadastros: boolean;
+  /** Admin e gestor abrem e editam OS. */
+  podeAbrirOrdens: boolean;
 };
 
 export const ContextoOrganizacao = createContext<EstadoOrganizacao | null>(null);

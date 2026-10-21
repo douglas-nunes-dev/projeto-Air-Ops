@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, ArchiveRestore, MapPin, Pencil, Plus } from 'lucide-react';
+import { Archive, ArchiveRestore, ClipboardPlus, MapPin, Pencil, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { toast } from 'sonner';
@@ -77,32 +77,42 @@ export function DetalheCliente() {
           </span>
         }
         acoes={
-          organizacao.podeEditarCadastros && (
-            <>
-              <Button asChild variant="outline">
-                <Link to={`/clientes/${cliente.id}/editar`}>
-                  <Pencil />
-                  Editar
+          <>
+            {organizacao.podeAbrirOrdens && cliente.ativo && (
+              <Button asChild>
+                <Link to={`/ordens/nova?clienteId=${cliente.id}`}>
+                  <ClipboardPlus />
+                  Abrir OS
                 </Link>
               </Button>
-              <ConfirmarAcao
-                gatilho={
-                  <Button variant="outline">
-                    {cliente.ativo ? <Archive /> : <ArchiveRestore />}
-                    {cliente.ativo ? 'Arquivar' : 'Reativar'}
-                  </Button>
-                }
-                titulo={cliente.ativo ? 'Arquivar este cliente?' : 'Reativar este cliente?'}
-                descricao={
-                  cliente.ativo
-                    ? 'Ele sai das listas, mas o histórico de atendimentos continua guardado. Dá para reativar depois.'
-                    : 'Ele volta a aparecer nas listas.'
-                }
-                rotuloConfirmar={cliente.ativo ? 'Arquivar' : 'Reativar'}
-                aoConfirmar={() => alternarArquivado(cliente)}
-              />
-            </>
-          )
+            )}
+            {organizacao.podeEditarCadastros && (
+              <>
+                <Button asChild variant="outline">
+                  <Link to={`/clientes/${cliente.id}/editar`}>
+                    <Pencil />
+                    Editar
+                  </Link>
+                </Button>
+                <ConfirmarAcao
+                  gatilho={
+                    <Button variant="outline">
+                      {cliente.ativo ? <Archive /> : <ArchiveRestore />}
+                      {cliente.ativo ? 'Arquivar' : 'Reativar'}
+                    </Button>
+                  }
+                  titulo={cliente.ativo ? 'Arquivar este cliente?' : 'Reativar este cliente?'}
+                  descricao={
+                    cliente.ativo
+                      ? 'Ele sai das listas, mas o histórico de atendimentos continua guardado. Dá para reativar depois.'
+                      : 'Ele volta a aparecer nas listas.'
+                  }
+                  rotuloConfirmar={cliente.ativo ? 'Arquivar' : 'Reativar'}
+                  aoConfirmar={() => alternarArquivado(cliente)}
+                />
+              </>
+            )}
+          </>
         }
       />
 

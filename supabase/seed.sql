@@ -2,6 +2,8 @@
 --
 -- Usa a primeira empresa cadastrada e só insere se ela ainda não tiver clientes:
 -- rodar de novo não duplica nada nem altera cadastros reais.
+-- O segundo bloco (etapa 2) abre OS de exemplo, só nos clientes de exemplo e só se a
+-- empresa ainda não tiver nenhuma OS.
 --
 -- No Supabase local (Docker), roda sozinho a cada `supabase db reset`.
 -- Na nuvem: npx supabase db query --linked -f supabase/seed.sql
@@ -132,5 +134,80 @@ begin
     (org, local_casa, 'Split Sala', 'split', 'Electrolux', 'Color Adapt', 18000, null, null, '2022-12-10', 180, null);
 
   raise notice 'Dados de exemplo inseridos: 5 clientes, 10 locais e 14 equipamentos.';
+end
+$$;
+
+-- Ordens de serviço de exemplo (etapa 2) -------------------------------------
+-- Separado do bloco acima para funcionar também numa empresa que já recebeu os cadastros
+-- de exemplo antes de existir o módulo de OS.
+
+do $$
+declare
+  org uuid;
+  nova uuid;
+begin
+  select id into org from public.organizacoes order by criado_em limit 1;
+
+  if org is null or exists (select 1 from public.ordens_servico where organizacao_id = org) then
+    raise notice 'OS de exemplo: sem empresa ou a empresa já tem OS; nada a fazer.';
+    return;
+  end if;
+
+  if not exists (
+    select 1 from public.clientes
+    where organizacao_id = org and nome = 'Hospital Exemplo de Passos'
+  ) then
+    raise notice 'OS de exemplo: os clientes de exemplo não existem; nada a fazer.';
+    return;
+  end if;
+
+  -- 1. Corretiva urgente na UTI, com dois equipamentos.
+  insert into public.ordens_servico (organizacao_id, cliente_id, local_id, tipo_servico, prioridade, problema, solicitante)
+  select org, l.cliente_id, l.id, 'corretiva', 'urgente',
+         'Fancoil da UTI desarmando e a temperatura subiu para 27 °C. Split do leito 3 pingando.',
+         'Enfermeira Carla, ramal 214'
+  from public.locais_atendimento l
+  where l.organizacao_id = org and l.nome = 'Bloco B — UTI'
+  returning id into nova;
+
+  insert into public.ordem_servico_equipamentos (organizacao_id, ordem_id, equipamento_id)
+  select org, nova, e.id from public.equipamentos e
+  where e.organizacao_id = org and e.identificacao in ('Fancoil UTI', 'Split UTI leito 3');
+
+  -- 2. Preventiva mensal da recepção do hospital.
+  insert into public.ordens_servico (organizacao_id, cliente_id, local_id, tipo_servico, prioridade, problema, solicitante)
+  select org, l.cliente_id, l.id, 'preventiva', 'media',
+         'Preventiva mensal: limpeza de filtros, conferência de dreno e medição de corrente.',
+         'Eng. Marta Ribeiro'
+  from public.locais_atendimento l
+  where l.organizacao_id = org and l.nome = 'Bloco A — Recepção'
+  returning id into nova;
+
+  insert into public.ordem_servico_equipamentos (organizacao_id, ordem_id, equipamento_id)
+  select org, nova, e.id from public.equipamentos e
+  where e.organizacao_id = org and e.identificacao in ('Split Recepção 1', 'Split Recepção 2');
+
+  -- 3. Câmara fria da padaria.
+  insert into public.ordens_servico (organizacao_id, cliente_id, local_id, tipo_servico, prioridade, problema, solicitante)
+  select org, l.cliente_id, l.id, 'corretiva', 'alta',
+         'Câmara fria formando gelo no evaporador e porta não veda direito.',
+         'Sr. Antônio'
+  from public.locais_atendimento l
+  where l.organizacao_id = org and l.nome = 'Fundos — Produção'
+  returning id into nova;
+
+  insert into public.ordem_servico_equipamentos (organizacao_id, ordem_id, equipamento_id)
+  select org, nova, e.id from public.equipamentos e
+  where e.organizacao_id = org and e.identificacao = 'Câmara fria';
+
+  -- 4. Instalação nova na residência, sem equipamento cadastrado ainda.
+  insert into public.ordens_servico (organizacao_id, cliente_id, local_id, tipo_servico, prioridade, problema, solicitante)
+  select org, l.cliente_id, l.id, 'instalacao', 'baixa',
+         'Instalar split 9.000 BTU/h no escritório; cliente já comprou o aparelho.',
+         'Paulo'
+  from public.locais_atendimento l
+  where l.organizacao_id = org and l.nome = 'Residência';
+
+  raise notice 'OS de exemplo inseridas: 4 ordens de serviço.';
 end
 $$;

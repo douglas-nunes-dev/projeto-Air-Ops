@@ -4,7 +4,11 @@ import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { Toaster } from '@/components/ui/sonner';
 import type { UsuarioLogado } from '@/domain/auth/tipos';
-import { podeEditarCadastros, type OrganizacaoDoUsuario } from '@/domain/organizacao/tipos';
+import {
+  podeAbrirOrdens,
+  podeEditarCadastros,
+  type OrganizacaoDoUsuario,
+} from '@/domain/organizacao/tipos';
 import { ContextoOrganizacao } from '@/hooks/useOrganizacao';
 import { ContextoSessao, type EstadoSessao } from '@/hooks/useSessao';
 
@@ -43,7 +47,11 @@ export function renderizarComRotas(tela: ReactNode, caminho: string, opcoes: Opc
     <QueryClientProvider client={cache}>
       <ContextoSessao value={sessao}>
         <ContextoOrganizacao
-          value={{ ...organizacao, podeEditarCadastros: podeEditarCadastros(organizacao.papeis) }}
+          value={{
+            ...organizacao,
+            podeEditarCadastros: podeEditarCadastros(organizacao.papeis),
+            podeAbrirOrdens: podeAbrirOrdens(organizacao.papeis),
+          }}
         >
           <MemoryRouter initialEntries={[opcoes.rota ?? caminho]}>
             <Routes>

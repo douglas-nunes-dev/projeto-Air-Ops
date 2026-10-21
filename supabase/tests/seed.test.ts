@@ -34,6 +34,23 @@ describe('dados de exemplo (seed.sql)', () => {
     expect(await contar('clientes')).toBe(5);
     expect(await contar('locais_atendimento')).toBe(10);
     expect(await contar('equipamentos')).toBe(14);
+    expect(await contar('ordens_servico')).toBe(4);
+    expect(await contar('ordem_servico_equipamentos')).toBe(5);
+    // Cada OS de exemplo também ganha a linha de abertura no histórico.
+    expect(await contar('ordem_servico_eventos')).toBe(4);
+  });
+
+  it('não cria OS de exemplo numa empresa só com clientes reais', async () => {
+    const empresa = await banco.query<{ id: string }>(
+      "insert into organizacoes (nome) values ('Minha Empresa') returning id",
+    );
+    await banco.query("insert into clientes (organizacao_id, nome) values ($1, 'Cliente real')", [
+      empresa.rows[0].id,
+    ]);
+
+    await banco.exec(SEED);
+
+    expect(await contar('ordens_servico')).toBe(0);
   });
 
   it('não mexe numa empresa que já tem clientes', async () => {

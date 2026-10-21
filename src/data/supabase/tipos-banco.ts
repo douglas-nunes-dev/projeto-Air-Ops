@@ -191,6 +191,183 @@ export type Database = {
           },
         ];
       };
+      ordem_servico_equipamentos: {
+        Row: {
+          criado_em: string;
+          equipamento_id: string;
+          ordem_id: string;
+          organizacao_id: string;
+        };
+        Insert: {
+          criado_em?: string;
+          equipamento_id: string;
+          ordem_id: string;
+          organizacao_id: string;
+        };
+        Update: {
+          criado_em?: string;
+          equipamento_id?: string;
+          ordem_id?: string;
+          organizacao_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'ordem_servico_equipamentos_equipamento_id_organizacao_id_fkey';
+            columns: ['equipamento_id', 'organizacao_id'];
+            isOneToOne: false;
+            referencedRelation: 'equipamentos';
+            referencedColumns: ['id', 'organizacao_id'];
+          },
+          {
+            foreignKeyName: 'ordem_servico_equipamentos_ordem_id_organizacao_id_fkey';
+            columns: ['ordem_id', 'organizacao_id'];
+            isOneToOne: false;
+            referencedRelation: 'ordens_servico';
+            referencedColumns: ['id', 'organizacao_id'];
+          },
+        ];
+      };
+      ordem_servico_eventos: {
+        Row: {
+          criado_em: string;
+          descricao: string | null;
+          id: string;
+          ordem_id: string;
+          organizacao_id: string;
+          status_anterior: Database['public']['Enums']['status_ordem'] | null;
+          status_novo: Database['public']['Enums']['status_ordem'] | null;
+          tipo: Database['public']['Enums']['tipo_evento_ordem'];
+          usuario_id: string | null;
+        };
+        Insert: {
+          criado_em?: string;
+          descricao?: string | null;
+          id?: string;
+          ordem_id: string;
+          organizacao_id: string;
+          status_anterior?: Database['public']['Enums']['status_ordem'] | null;
+          status_novo?: Database['public']['Enums']['status_ordem'] | null;
+          tipo: Database['public']['Enums']['tipo_evento_ordem'];
+          usuario_id?: string | null;
+        };
+        Update: {
+          criado_em?: string;
+          descricao?: string | null;
+          id?: string;
+          ordem_id?: string;
+          organizacao_id?: string;
+          status_anterior?: Database['public']['Enums']['status_ordem'] | null;
+          status_novo?: Database['public']['Enums']['status_ordem'] | null;
+          tipo?: Database['public']['Enums']['tipo_evento_ordem'];
+          usuario_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'ordem_servico_eventos_ordem_id_organizacao_id_fkey';
+            columns: ['ordem_id', 'organizacao_id'];
+            isOneToOne: false;
+            referencedRelation: 'ordens_servico';
+            referencedColumns: ['id', 'organizacao_id'];
+          },
+          {
+            foreignKeyName: 'ordem_servico_eventos_usuario_id_fkey';
+            columns: ['usuario_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      ordens_servico: {
+        Row: {
+          aberta_por: string | null;
+          agendada_para: string | null;
+          atualizado_em: string;
+          cliente_id: string;
+          criado_em: string;
+          id: string;
+          local_id: string;
+          numero: number;
+          organizacao_id: string;
+          prioridade: Database['public']['Enums']['prioridade_ordem'];
+          problema: string;
+          solicitante: string | null;
+          status: Database['public']['Enums']['status_ordem'];
+          tecnico_id: string | null;
+          tipo_servico: Database['public']['Enums']['tipo_servico'];
+        };
+        Insert: {
+          aberta_por?: string | null;
+          agendada_para?: string | null;
+          atualizado_em?: string;
+          cliente_id: string;
+          criado_em?: string;
+          id?: string;
+          local_id: string;
+          numero: number;
+          organizacao_id: string;
+          prioridade?: Database['public']['Enums']['prioridade_ordem'];
+          problema: string;
+          solicitante?: string | null;
+          status?: Database['public']['Enums']['status_ordem'];
+          tecnico_id?: string | null;
+          tipo_servico?: Database['public']['Enums']['tipo_servico'];
+        };
+        Update: {
+          aberta_por?: string | null;
+          agendada_para?: string | null;
+          atualizado_em?: string;
+          cliente_id?: string;
+          criado_em?: string;
+          id?: string;
+          local_id?: string;
+          numero?: number;
+          organizacao_id?: string;
+          prioridade?: Database['public']['Enums']['prioridade_ordem'];
+          problema?: string;
+          solicitante?: string | null;
+          status?: Database['public']['Enums']['status_ordem'];
+          tecnico_id?: string | null;
+          tipo_servico?: Database['public']['Enums']['tipo_servico'];
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'ordens_servico_aberta_por_fkey';
+            columns: ['aberta_por'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'ordens_servico_cliente_id_organizacao_id_fkey';
+            columns: ['cliente_id', 'organizacao_id'];
+            isOneToOne: false;
+            referencedRelation: 'clientes';
+            referencedColumns: ['id', 'organizacao_id'];
+          },
+          {
+            foreignKeyName: 'ordens_servico_local_id_cliente_id_organizacao_id_fkey';
+            columns: ['local_id', 'cliente_id', 'organizacao_id'];
+            isOneToOne: false;
+            referencedRelation: 'locais_atendimento';
+            referencedColumns: ['id', 'cliente_id', 'organizacao_id'];
+          },
+          {
+            foreignKeyName: 'ordens_servico_organizacao_id_fkey';
+            columns: ['organizacao_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizacoes';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'ordens_servico_organizacao_id_tecnico_id_fkey';
+            columns: ['organizacao_id', 'tecnico_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizacao_usuarios';
+            referencedColumns: ['organizacao_id', 'usuario_id'];
+          },
+        ];
+      };
       organizacao_usuarios: {
         Row: {
           ativo: boolean;
@@ -286,10 +463,37 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      abrir_ordem_servico: {
+        Args: {
+          p_cliente_id: string;
+          p_equipamento_ids: string[];
+          p_local_id: string;
+          p_organizacao_id: string;
+          p_prioridade: Database['public']['Enums']['prioridade_ordem'];
+          p_problema: string;
+          p_solicitante: string;
+          p_tipo_servico: Database['public']['Enums']['tipo_servico'];
+        };
+        Returns: string;
+      };
+      editar_ordem_servico: {
+        Args: {
+          p_cliente_id: string;
+          p_equipamento_ids: string[];
+          p_id: string;
+          p_local_id: string;
+          p_prioridade: Database['public']['Enums']['prioridade_ordem'];
+          p_problema: string;
+          p_solicitante: string;
+          p_tipo_servico: Database['public']['Enums']['tipo_servico'];
+        };
+        Returns: undefined;
+      };
     };
     Enums: {
       papel_usuario: 'admin' | 'gestor' | 'tecnico';
+      prioridade_ordem: 'baixa' | 'media' | 'alta' | 'urgente';
+      status_ordem: 'aberta' | 'agendada' | 'em_execucao' | 'pausada' | 'concluida' | 'cancelada';
       tipo_equipamento:
         | 'split'
         | 'janela'
@@ -303,7 +507,9 @@ export type Database = {
         | 'camara_fria'
         | 'balcao_refrigerado'
         | 'outro';
+      tipo_evento_ordem: 'abertura' | 'edicao' | 'mudanca_status' | 'atribuicao';
       tipo_pessoa: 'fisica' | 'juridica';
+      tipo_servico: 'corretiva' | 'preventiva' | 'instalacao' | 'outro';
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -426,6 +632,8 @@ export const Constants = {
   public: {
     Enums: {
       papel_usuario: ['admin', 'gestor', 'tecnico'],
+      prioridade_ordem: ['baixa', 'media', 'alta', 'urgente'],
+      status_ordem: ['aberta', 'agendada', 'em_execucao', 'pausada', 'concluida', 'cancelada'],
       tipo_equipamento: [
         'split',
         'janela',
@@ -440,7 +648,9 @@ export const Constants = {
         'balcao_refrigerado',
         'outro',
       ],
+      tipo_evento_ordem: ['abertura', 'edicao', 'mudanca_status', 'atribuicao'],
       tipo_pessoa: ['fisica', 'juridica'],
+      tipo_servico: ['corretiva', 'preventiva', 'instalacao', 'outro'],
     },
   },
 } as const;

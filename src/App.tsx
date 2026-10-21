@@ -14,6 +14,10 @@ import { EditarEquipamento } from '@/pages/equipamentos/EditarEquipamento';
 import { ListaEquipamentos } from '@/pages/equipamentos/ListaEquipamentos';
 import { NovoEquipamento } from '@/pages/equipamentos/NovoEquipamento';
 import { Inicio } from '@/pages/Inicio';
+import { DetalheOrdem } from '@/pages/ordens/DetalheOrdem';
+import { EditarOrdem } from '@/pages/ordens/EditarOrdem';
+import { ListaOrdens } from '@/pages/ordens/ListaOrdens';
+import { NovaOrdem } from '@/pages/ordens/NovaOrdem';
 import { ROTA_REDEFINIR_SENHA } from '@/services/authService';
 
 // Área logada: confere a sessão, carrega a empresa do usuário e mostra o menu.
@@ -35,6 +39,10 @@ function App() {
         <Route element={<AreaLogada />}>
           <Route element={<LayoutEscritorio />}>
             <Route path="/" element={<Inicio />} />
+            <Route path="/ordens" element={<ListaOrdens />} />
+            <Route path="/ordens/nova" element={<NovaOrdem />} />
+            <Route path="/ordens/:id" element={<DetalheOrdem />} />
+            <Route path="/ordens/:id/editar" element={<EditarOrdem />} />
             <Route path="/clientes" element={<ListaClientes />} />
             <Route path="/clientes/novo" element={<NovoCliente />} />
             <Route path="/clientes/:id" element={<DetalheCliente />} />

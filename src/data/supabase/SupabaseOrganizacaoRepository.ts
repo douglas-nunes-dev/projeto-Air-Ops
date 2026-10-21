@@ -1,9 +1,9 @@
 import type { OrganizacaoRepository } from '../repositories/OrganizacaoRepository';
 import { ErroDados } from '@/domain/erros';
-import type { OrganizacaoDoUsuario } from '@/domain/organizacao/tipos';
+import type { MembroOrganizacao, OrganizacaoDoUsuario } from '@/domain/organizacao/tipos';
 import { obterClienteSupabase } from './client';
 import { exigirDados } from './erros';
-import { ordenarPapeis } from './mapeadores';
+import { nomeDaPessoa, ordenarPapeis } from './mapeadores';
 
 export class SupabaseOrganizacaoRepository implements OrganizacaoRepository {
   async listarDoUsuario(): Promise<OrganizacaoDoUsuario[]> {
@@ -26,6 +26,22 @@ export class SupabaseOrganizacaoRepository implements OrganizacaoRepository {
       id: linha.organizacao.id,
       nome: linha.organizacao.nome,
       papeis: ordenarPapeis(linha.papeis),
+    }));
+  }
+
+  async listarMembros(organizacaoId: string): Promise<MembroOrganizacao[]> {
+    const linhas = exigirDados(
+      await obterClienteSupabase()
+        .from('organizacao_usuarios')
+        .select('papeis, ativo, usuario:usuarios!inner(id, nome, email)')
+        .eq('organizacao_id', organizacaoId),
+    );
+
+    return linhas.map((linha) => ({
+      usuarioId: linha.usuario.id,
+      nome: nomeDaPessoa(linha.usuario) ?? linha.usuario.email,
+      papeis: ordenarPapeis(linha.papeis),
+      ativo: linha.ativo,
     }));
   }
 }

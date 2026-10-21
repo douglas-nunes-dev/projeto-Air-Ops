@@ -3,7 +3,7 @@ import { Building2, RotateCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { TelaCarregando } from '@/components/TelaCarregando';
 import { Button } from '@/components/ui/button';
-import { podeEditarCadastros } from '@/domain/organizacao/tipos';
+import { podeAbrirOrdens, podeEditarCadastros } from '@/domain/organizacao/tipos';
 import { ContextoOrganizacao } from '@/hooks/useOrganizacao';
 import { useSessao } from '@/hooks/useSessao';
 import { chaves } from '@/lib/chavesConsulta';
@@ -74,7 +74,11 @@ export function OrganizacaoProvider({ children }: { children: ReactNode }) {
 
   return (
     <ContextoOrganizacao
-      value={{ ...organizacao, podeEditarCadastros: podeEditarCadastros(organizacao.papeis) }}
+      value={{
+        ...organizacao,
+        podeEditarCadastros: podeEditarCadastros(organizacao.papeis),
+        podeAbrirOrdens: podeAbrirOrdens(organizacao.papeis),
+      }}
     >
       {children}
     </ContextoOrganizacao>

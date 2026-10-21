@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, ArchiveRestore, History, Pencil } from 'lucide-react';
+import { Archive, ArchiveRestore, ClipboardPlus, History, Pencil } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { toast } from 'sonner';
 import { CabecalhoPagina } from '@/components/pagina/CabecalhoPagina';
@@ -71,34 +71,44 @@ export function DetalheEquipamento() {
           </span>
         }
         acoes={
-          organizacao.podeEditarCadastros && (
-            <>
-              <Button asChild variant="outline">
-                <Link to={`/equipamentos/${equipamento.id}/editar`}>
-                  <Pencil />
-                  Editar
+          <>
+            {organizacao.podeAbrirOrdens && equipamento.ativo && (
+              <Button asChild>
+                <Link to={`/ordens/nova?equipamentoId=${equipamento.id}`}>
+                  <ClipboardPlus />
+                  Abrir OS
                 </Link>
               </Button>
-              <ConfirmarAcao
-                gatilho={
-                  <Button variant="outline">
-                    {equipamento.ativo ? <Archive /> : <ArchiveRestore />}
-                    {equipamento.ativo ? 'Arquivar' : 'Reativar'}
-                  </Button>
-                }
-                titulo={
-                  equipamento.ativo ? 'Arquivar este equipamento?' : 'Reativar este equipamento?'
-                }
-                descricao={
-                  equipamento.ativo
-                    ? 'Use quando o aparelho for retirado ou trocado. O histórico continua guardado.'
-                    : 'Ele volta a aparecer nas listas.'
-                }
-                rotuloConfirmar={equipamento.ativo ? 'Arquivar' : 'Reativar'}
-                aoConfirmar={() => alternarArquivado(equipamento)}
-              />
-            </>
-          )
+            )}
+            {organizacao.podeEditarCadastros && (
+              <>
+                <Button asChild variant="outline">
+                  <Link to={`/equipamentos/${equipamento.id}/editar`}>
+                    <Pencil />
+                    Editar
+                  </Link>
+                </Button>
+                <ConfirmarAcao
+                  gatilho={
+                    <Button variant="outline">
+                      {equipamento.ativo ? <Archive /> : <ArchiveRestore />}
+                      {equipamento.ativo ? 'Arquivar' : 'Reativar'}
+                    </Button>
+                  }
+                  titulo={
+                    equipamento.ativo ? 'Arquivar este equipamento?' : 'Reativar este equipamento?'
+                  }
+                  descricao={
+                    equipamento.ativo
+                      ? 'Use quando o aparelho for retirado ou trocado. O histórico continua guardado.'
+                      : 'Ele volta a aparecer nas listas.'
+                  }
+                  rotuloConfirmar={equipamento.ativo ? 'Arquivar' : 'Reativar'}
+                  aoConfirmar={() => alternarArquivado(equipamento)}
+                />
+              </>
+            )}
+          </>
         }
       />
 

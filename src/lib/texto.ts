@@ -1,3 +1,5 @@
+import { format } from 'date-fns';
+
 /** Minúsculas e sem acentos, para buscas: "Clínica" e "clinica" ficam iguais. */
 export function normalizarParaBusca(texto: string): string {
   return texto
@@ -26,4 +28,16 @@ export function formatarDataSimples(data: string | null): string {
   if (!data) return '';
   const [ano, mes, dia] = data.split('-');
   return `${dia}/${mes}/${ano}`;
+}
+
+/** Data e hora (ISO 8601) no fuso de quem está usando: "21/10/2026 às 14:05". */
+export function formatarDataHora(iso: string | null): string {
+  if (!iso) return '';
+  return format(new Date(iso), "dd/MM/yyyy 'às' HH:mm");
+}
+
+/** Só o dia (ISO 8601) no fuso de quem está usando: "21/10/2026". */
+export function formatarDia(iso: string | null): string {
+  if (!iso) return '';
+  return format(new Date(iso), 'dd/MM/yyyy');
 }

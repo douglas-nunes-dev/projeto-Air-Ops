@@ -13,7 +13,9 @@ type CampoSelecaoProps<T extends FieldValues, TSaida> = {
   /** Texto da primeira opção, que deixa o campo vazio (ex.: "Não informado"). */
   opcaoVazia?: string;
   descricao?: string;
-} & Omit<ComponentProps<'select'>, 'name' | 'id' | 'children'>;
+  /** Chamado depois que o valor muda, para ajustar outros campos (ex.: limpar o local). */
+  aoMudar?: (valor: string) => void;
+} & Omit<ComponentProps<'select'>, 'name' | 'id' | 'children' | 'onChange'>;
 
 // Seleção nativa do navegador: no celular abre o seletor do próprio aparelho.
 export function CampoSelecao<T extends FieldValues, TSaida = T>({
@@ -23,6 +25,7 @@ export function CampoSelecao<T extends FieldValues, TSaida = T>({
   opcoes,
   opcaoVazia,
   descricao,
+  aoMudar,
   className,
   ...propsSelect
 }: CampoSelecaoProps<T, TSaida>) {
@@ -36,6 +39,10 @@ export function CampoSelecao<T extends FieldValues, TSaida = T>({
           <select
             {...propsSelect}
             {...field}
+            onChange={(evento) => {
+              field.onChange(evento);
+              aoMudar?.(evento.target.value);
+            }}
             id={name}
             aria-invalid={fieldState.invalid}
             className={cn(

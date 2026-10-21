@@ -1,6 +1,7 @@
 import type { LocalAtendimento } from '@/domain/cliente/local';
 import type { Cliente } from '@/domain/cliente/tipos';
 import type { Equipamento } from '@/domain/equipamento/tipos';
+import type { Ordem } from '@/domain/ordem/tipos';
 import { organizacaoDeTeste } from './renderizar';
 
 // Cadastros de exemplo para os testes de tela.
@@ -53,4 +54,25 @@ export const equipamentoDeTeste: Equipamento = {
   localNome: localDeTeste.nome,
   clienteId: clienteDeTeste.id,
   clienteNome: clienteDeTeste.nome,
+};
+
+export const ordemDeTeste: Ordem = {
+  id: 'dddddddd-0000-4000-8000-000000000001',
+  organizacaoId: organizacaoDeTeste.id,
+  numero: 7,
+  clienteId: clienteDeTeste.id,
+  clienteNome: clienteDeTeste.nome,
+  localId: localDeTeste.id,
+  localNome: localDeTeste.nome,
+  tipoServico: 'corretiva',
+  prioridade: 'alta',
+  problema: 'Split não está gelando e faz barulho.',
+  solicitante: 'Enfermeira Carla',
+  status: 'aberta',
+  tecnicoId: null,
+  tecnicoNome: null,
+  agendadaPara: null,
+  abertaPorNome: 'Gestor Teste',
+  criadoEm: '2026-10-20T13:30:00.000Z',
+  equipamentos: [{ id: equipamentoDeTeste.id, identificacao: equipamentoDeTeste.identificacao }],
 };

@@ -4,14 +4,16 @@ import {
   ClipboardList,
   LayoutDashboard,
   LogOut,
+  Plus,
   Settings,
   Users,
   type LucideIcon,
 } from 'lucide-react';
-import { NavLink, Outlet } from 'react-router';
+import { Link, NavLink, Outlet } from 'react-router';
 import { toast } from 'sonner';
 import simbolo from '@/assets/simbolo-airops.png';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +42,7 @@ import { useOrganizacao } from '@/hooks/useOrganizacao';
 import { useSessao } from '@/hooks/useSessao';
 import { mensagemDeErro } from '@/lib/erros';
 import { sair } from '@/services/authService';
+import { BuscaGeral } from './BuscaGeral';
 
 type ItemMenu = {
   rotulo: string;
@@ -50,7 +53,7 @@ type ItemMenu = {
 
 const ITENS_MENU: ItemMenu[] = [
   { rotulo: 'Painel', icone: LayoutDashboard, para: '/' },
-  { rotulo: 'Ordens de serviço', icone: ClipboardList },
+  { rotulo: 'Ordens de serviço', icone: ClipboardList, para: '/ordens' },
   { rotulo: 'Agenda', icone: CalendarDays },
   { rotulo: 'Clientes', icone: Users, para: '/clientes' },
   { rotulo: 'Equipamentos', icone: AirVent, para: '/equipamentos' },
@@ -159,6 +162,20 @@ function MenuUsuario() {
   );
 }
 
+function BotaoNovaOrdem() {
+  const organizacao = useOrganizacao();
+  if (!organizacao.podeAbrirOrdens) return null;
+
+  return (
+    <Button asChild size="sm">
+      <Link to="/ordens/nova" aria-label="Nova OS">
+        <Plus />
+        <span className="hidden sm:inline">Nova OS</span>
+      </Link>
+    </Button>
+  );
+}
+
 export function LayoutEscritorio() {
   return (
     <SidebarProvider>
@@ -166,7 +183,9 @@ export function LayoutEscritorio() {
       <SidebarInset className="bg-muted/40">
         <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b bg-background px-4">
           <SidebarTrigger aria-label="Abrir ou fechar o menu" />
+          <BuscaGeral />
           <div className="flex-1" />
+          <BotaoNovaOrdem />
           <MenuUsuario />
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 p-4 md:p-6">

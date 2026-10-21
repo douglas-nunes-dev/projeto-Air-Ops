@@ -401,8 +401,10 @@ src/
       tipos.ts               ✅ tipos de equipamento, periodicidades
       preventiva.ts          ← cálculo da próxima manutenção (etapa 8)
     ordem/
-      tipos.ts
-      transicoes.ts
+      tipos.ts               ✅ OS, status, prioridade, tipo de serviço, formulário
+      transicoes.ts          ✅ fluxo de status da seção 4
+      filtros.ts             ✅ filtros da lista (situação, prioridade, técnico, período)
+      preenchimento.ts       ✅ OS aberta a partir do cliente ou do equipamento
     ia/
       promptRascunhoOS.ts
   services/                  ← o que as telas usam
@@ -410,22 +412,23 @@ src/
     organizacaoService.ts    ✅
     clienteService.ts        ✅ clientes e locais
     equipamentoService.ts    ✅
-    ordemService.ts
+    ordemService.ts          ✅
     storageService.ts
     iaService.ts
   data/
     index.ts                 ✅ ÚNICO ponto que escolhe a implementação
-    repositories/            ✅ interfaces (AuthProvider, Organizacao, Cliente, Local, Equipamento)
+    repositories/            ✅ interfaces (AuthProvider, Organizacao, Cliente, Local, Equipamento, Ordem)
     supabase/                ✅ implementação atual (único lugar com Supabase)
       client.ts              ✅ cliente criado no primeiro uso
       tipos-banco.ts         ✅ gerado com `npm run db:tipos` (não editar à mão)
       mapeadores.ts          ✅ banco (snake_case) ↔ domínio (camelCase)
       erros.ts               ✅ erros do Postgres → ErroDados com mensagem em português
     api/                     ← implementação futura (API Node)
-  pages/                     ✅ auth/, clientes/, equipamentos/
+  pages/                     ✅ auth/, clientes/, equipamentos/, ordens/
   components/
     ui/                      ✅ shadcn (só visual)
-    layout/                  ✅ menu lateral, empresa do usuário
+    layout/                  ✅ menu lateral, busca geral, empresa do usuário
+    ordem/                   ✅ etiquetas de status e prioridade
     formulario/              ✅ campos ligados ao React Hook Form
     pagina/                  ✅ cabeçalho, busca, estados de carregando/erro
     tabela/                  ✅ tabela com busca, ordenação e paginação
@@ -441,6 +444,29 @@ docs/
   pdf/                       ← mockups, roteiro de entrevista e materiais de referência
   imagens/                   ← identidade visual (logos)
 ```
+
+### Onde fica o quê
+
+Todo o TypeScript do app fica em `src/`. A única exceção são os testes do banco, em `supabase/tests/`.
+
+| Pasta | O que guarda | Exemplo |
+|---|---|---|
+| `src/pages/` | As telas, uma subpasta por módulo | `clientes/ListaClientes.tsx` |
+| `src/components/` | Peças de tela reaproveitadas; em `ui/` ficam os componentes do shadcn | `formulario/CampoTexto.tsx` |
+| `src/services/` | O que as telas chamam (regras do app) | `clienteService.ts` |
+| `src/domain/` | Tipos e validações em TS puro, sem banco nem tela | `cliente/documento.ts` (CPF/CNPJ) |
+| `src/data/repositories/` | Interfaces: **o que** dá para fazer com os dados | `ClienteRepository.ts` |
+| `src/data/supabase/` | Implementação: **como** fazer no Supabase | `SupabaseClienteRepository.ts` |
+| `src/hooks/` | Hooks do React | `useSessao.ts` |
+| `src/lib/` | Utilitários gerais | `texto.ts` |
+| `src/test/` | Ajudantes dos testes de tela | `setup.ts` |
+| `supabase/tests/` | Testes do banco (RLS e regras), com `npm run test:banco` | `cadastros.test.ts` |
+
+**Extensões dos arquivos**
+
+- **`.tsx`**: TypeScript com tela (JSX, o HTML escrito dentro do código). Usado em telas e componentes.
+- **`.ts`**: TypeScript só com lógica, sem tela. Usado em `domain`, `services`, `data` e `lib`.
+- **`.test.ts` / `.test.tsx`**: testes, guardados ao lado do arquivo que testam.
 
 ---
 
@@ -482,7 +508,10 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 - Colunas `criado_em`, `atualizado_em` e `organizacao_id` em toda tabela de negócio.
 - Datas com horário em `timestamptz`; datas sem horário (instalação, próxima manutenção) em `date`.
 - **Cadastros não são apagados pelo app:** a coluna `ativo` arquiva (some das listas, mas o histórico de atendimentos continua ligado a eles).
-- **Mesma empresa garantida pelo banco:** tabelas filhas usam chave estrangeira composta `(id, organizacao_id)` (ex.: um local só pode apontar para um cliente da mesma organização).
+- **Mesma empresa garantida pelo banco:** tabelas filhas usam chave estrangeira composta `(id, organizacao_id)` (ex.: um local só pode apontar para um cliente da mesma organização). A OS vai além: aponta para `(local, cliente, organização)` de uma vez, então o local precisa ser do cliente escolhido, e o técnico precisa ser membro da empresa.
+- **Número da OS** (`numero`) sequencial dentro de cada empresa ("OS 42"), dado pelo banco num contador por empresa (`privado.contadores_ordem`); duas OS abertas ao mesmo tempo nunca repetem o número.
+- **Abrir e editar OS numa só transação:** as funções `abrir_ordem_servico` e `editar_ordem_servico` gravam a OS e os equipamentos juntos (ou tudo, ou nada). Rodam com as permissões de quem chama (passam pelo RLS) e não têm regra de negócio, só agrupam as gravações. Na API Node, viram uma transação comum.
+- **Histórico pelo banco:** abertura e edição de OS geram a linha em `ordem_servico_eventos` por gatilho, com quem fez e o que mudou. O app não grava no histórico diretamente.
 - CPF/CNPJ, telefone e CEP guardados **só com dígitos**; a pontuação é colocada na tela.
 
 ---
@@ -583,8 +612,8 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes
 |---|---|---|
 | 0. Fundação | Projeto Vite, estrutura de pastas, ESLint com a regra de importação, Supabase CLI, migrations, login, organizações, usuários, RLS e permissões por papel testadas, base de segurança da seção 11 | ✅ Concluída |
 | 1. Cadastros | Clientes, locais e equipamentos | ✅ Concluída |
-| 2. Abertura de OS | Formulário de abertura e lista com filtros | ⏳ Próxima |
-| 3. Planejamento | Agendamento, atribuição e agenda por técnico | |
+| 2. Abertura de OS | Formulário de abertura e lista com filtros | ✅ Concluída |
+| 3. Planejamento | Agendamento, atribuição e agenda por técnico | ⏳ Próxima |
 | 4. Execução | Tela do técnico: diagnóstico, checklist, tempo, fotos com fila | |
 | 5. Conclusão | Assinatura, revisão, encerramento e PDF | |
 | 6. Histórico | Linha do tempo por equipamento e por cliente | |
@@ -627,6 +656,20 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes
 - [x] Dados de exemplo fictícios (`supabase/seed.sql`), aplicados na nuvem com `npx supabase db query --linked -f supabase/seed.sql`
 
 > **Etapa 1 concluída.** A barra superior ainda não tem a busca global nem o botão "Nova OS" (seção 6): eles chegam na etapa 2, junto com as ordens de serviço. A linha do tempo de atendimentos do equipamento chega na etapa 6.
+
+### Checklist da etapa 2
+
+- [x] Migration com `ordens_servico`, `ordem_servico_equipamentos` e `ordem_servico_eventos`; número sequencial por empresa; local precisa ser do cliente e técnico precisa ser da empresa (chaves compostas)
+- [x] RLS: admin e gestor abrem, leem e editam; técnico só lê as OS atribuídas a ele; OS concluída ou cancelada não se edita; ninguém apaga; o app não grava status, técnico, número nem histórico
+- [x] Abertura e edição numa só transação (`abrir_ordem_servico` e `editar_ordem_servico`) e histórico de abertura e edição por gatilho
+- [x] Testes de acesso cruzado, de papéis e de regras de dados (`supabase/tests/ordens.test.ts`)
+- [x] Domínio em TS puro: tipos e formulário da OS, transições de status da seção 4 (`transicoes.ts`) e filtros da lista
+- [x] `OrdemRepository`, `ordemService` e lista de pessoas da empresa (para o filtro de técnico)
+- [x] Telas: lista com filtros (situação, prioridade, técnico e período de abertura, guardados no endereço), abertura, edição e detalhe com histórico
+- [x] Barra superior com busca geral (OS, clientes e equipamentos; atalho Ctrl+K) e botão "Nova OS"; botão "Abrir OS" no cliente e no equipamento; cartões de OS no painel
+- [x] OS de exemplo no `supabase/seed.sql` (só nos clientes de exemplo)
+
+> **Etapa 2 concluída.** Campos obrigatórios da OS decididos: cliente, local, tipo de serviço, prioridade e problema relatado; equipamentos e solicitante são opcionais. Cancelar, agendar e atribuir técnico são mudanças de status e chegam na etapa 3, pela Edge Function da seção 11. O filtro por técnico já existe, mas só faz diferença depois que a etapa 3 permitir atribuir técnicos. O vínculo de retorno (`os_origem_id`) fica para quando houver OS concluídas (etapa 5).
 
 ### Checklist antes do piloto
 
@@ -718,7 +761,7 @@ A migração **não precisa ser de uma vez**. Caminho sugerido:
 
 ## 17. Decisões em aberto
 
-- [ ] Campos obrigatórios de uma OS
+- [x] Campos obrigatórios de uma OS (decidido na etapa 2: cliente, local, tipo de serviço, prioridade e problema)
 - [ ] Modelos de checklist iniciais (ex.: preventiva split, corretiva, instalação)
 - [ ] Conteúdo mínimo do relatório em PDF para ser aceito pelos contratantes (validar com o piloto)
 - [ ] Regras exatas do modo autônomo

@@ -1,14 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { AirVent, Users, type LucideIcon } from 'lucide-react';
+import { AirVent, ClipboardList, Siren, Users, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { CabecalhoPagina } from '@/components/pagina/CabecalhoPagina';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { statusFinal } from '@/domain/ordem/transicoes';
 import { useOrganizacao } from '@/hooks/useOrganizacao';
 import { chaves } from '@/lib/chavesConsulta';
 import { listarClientes } from '@/services/clienteService';
 import { listarEquipamentos } from '@/services/equipamentoService';
+import { listarOrdens } from '@/services/ordemService';
 
 type CartaoResumoProps = {
   titulo: string;
@@ -38,7 +40,7 @@ function CartaoResumo({ titulo, total, descricao, icone: Icone, para }: CartaoRe
   );
 }
 
-// Painel provisório: os cartões de OS, agenda e preventivas (mockup) chegam nas próximas etapas.
+// Painel provisório: OS atrasadas, agenda do dia e preventivas (mockup) chegam nas próximas etapas.
 export function Inicio() {
   const organizacao = useOrganizacao();
   const hoje = format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
@@ -52,6 +54,13 @@ export function Inicio() {
     queryFn: () => listarEquipamentos(organizacao.id),
   });
 
+  const ordens = useQuery({
+    queryKey: chaves.ordens(organizacao.id),
+    queryFn: () => listarOrdens(organizacao.id),
+  });
+
+  const emAndamento = ordens.data?.filter((ordem) => !statusFinal(ordem.status));
+  const urgentes = emAndamento?.filter((ordem) => ordem.prioridade === 'urgente').length;
   const totalClientes = clientes.data?.filter((cliente) => cliente.ativo).length;
   const totalEquipamentos = equipamentos.data?.filter((equipamento) => equipamento.ativo).length;
 
@@ -59,6 +68,20 @@ export function Inicio() {
     <>
       <CabecalhoPagina titulo="Painel" descricao={<span className="capitalize">{hoje}</span>} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <CartaoResumo
+          titulo="OS em andamento"
+          total={emAndamento?.length}
+          descricao="Ainda não concluídas nem canceladas"
+          icone={ClipboardList}
+          para="/ordens"
+        />
+        <CartaoResumo
+          titulo="OS urgentes"
+          total={urgentes}
+          descricao="Em andamento com prioridade urgente"
+          icone={Siren}
+          para="/ordens?prioridade=urgente"
+        />
         <CartaoResumo
           titulo="Clientes"
           total={totalClientes}
@@ -75,7 +98,7 @@ export function Inicio() {
         />
       </div>
       <p className="mt-6 text-sm text-muted-foreground">
-        OS abertas, agenda do dia e preventivas vencendo aparecem aqui nas próximas etapas.
+        OS atrasadas, agenda do dia e preventivas vencendo aparecem aqui nas próximas etapas.
       </p>
     </>
   );
