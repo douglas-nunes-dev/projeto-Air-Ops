@@ -27,6 +27,16 @@ export function podeAbrirOrdens(papeis: Papel[]): boolean {
   return papeis.includes('admin') || papeis.includes('gestor');
 }
 
+/**
+ * Ao entrar, abre o modo técnico (celular)? Sim para quem é só técnico; no modo autônomo
+ * (técnico + admin/gestor), só em tela pequena — no computador fica o escritório (seção 6).
+ */
+export function abreNoModoTecnico(papeis: Papel[], telaPequena: boolean): boolean {
+  if (!papeis.includes('tecnico')) return false;
+  const cuidaDoEscritorio = papeis.includes('admin') || papeis.includes('gestor');
+  return !cuidaDoEscritorio || telaPequena;
+}
+
 /** Pessoa da empresa, usada para escolher e filtrar técnicos. */
 export type MembroOrganizacao = {
   usuarioId: string;

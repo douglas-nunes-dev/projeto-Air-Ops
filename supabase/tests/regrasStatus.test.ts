@@ -155,3 +155,92 @@ describe('formatarHorario', () => {
     expect(formatarHorario('2026-10-23T02:30:00Z')).toBe('qui., 22/10 às 23:30');
   });
 });
+
+describe('execução (etapa 4)', () => {
+  const iniciar: Pedido = { acao: 'iniciar', ordemId };
+  const pausar: Pedido = { acao: 'pausar', ordemId, motivo: 'Aguardando peça' };
+  const agendada: OrdemAtual = {
+    status: 'agendada',
+    tecnicoId,
+    agendadaPara: '2026-10-22T13:00:00.000Z',
+    duracaoMinutos: 60,
+  };
+  const doTecnico = { usuarioId: tecnicoId, quemPede: tecnico, ordem: agendada };
+
+  it('lerPedido aceita iniciar e exige o motivo da pausa', () => {
+    expect(lerPedido(iniciar)).toEqual({ ok: true, pedido: iniciar });
+    expect(lerPedido(pausar)).toEqual({ ok: true, pedido: pausar });
+    expect(lerPedido({ ...pausar, motivo: 'ok' })).toMatchObject({ ok: false, campo: 'motivo' });
+  });
+
+  it('o técnico da OS inicia, mantendo o que foi planejado', () => {
+    expect(decidir(contexto({ pedido: iniciar, ...doTecnico }))).toEqual({
+      ok: true,
+      gravacao: {
+        p_ordem_id: ordemId,
+        p_status_esperado: 'agendada',
+        p_status_novo: 'em_execucao',
+        p_tecnico_id: tecnicoId,
+        p_agendada_para: '2026-10-22T13:00:00.000Z',
+        p_duracao_minutos: 60,
+        p_motivo_cancelamento: null,
+        p_tipo_evento: 'mudanca_status',
+        p_descricao: 'Execução iniciada',
+        p_usuario_id: tecnicoId,
+      },
+    });
+  });
+
+  it('pausa com o motivo e retoma depois', () => {
+    const emExecucao = { ...agendada, status: 'em_execucao' as const };
+    expect(decidir(contexto({ pedido: pausar, ...doTecnico, ordem: emExecucao }))).toMatchObject({
+      ok: true,
+      gravacao: { p_status_novo: 'pausada', p_descricao: 'Pausada: Aguardando peça' },
+    });
+
+    const pausada = { ...agendada, status: 'pausada' as const };
+    expect(decidir(contexto({ pedido: iniciar, ...doTecnico, ordem: pausada }))).toMatchObject({
+      ok: true,
+      gravacao: { p_status_novo: 'em_execucao', p_descricao: 'Execução retomada' },
+    });
+  });
+
+  it('gestor não executa no lugar do técnico; técnico de outra OS nem vê', () => {
+    expect(decidir(contexto({ pedido: iniciar, ordem: agendada }))).toMatchObject({
+      codigo: 'sem_permissao',
+    });
+    const outroTecnico = '00000000-0000-4000-8000-000000000009';
+    expect(
+      decidir(contexto({ pedido: iniciar, ...doTecnico, usuarioId: outroTecnico })),
+    ).toMatchObject({ codigo: 'nao_encontrado' });
+  });
+
+  it('modo autônomo: admin que também é o técnico da OS executa', () => {
+    const autonomo: Vinculo = { papeis: ['admin', 'gestor', 'tecnico'], ativo: true, nome: 'Ana' };
+    expect(decidir(contexto({ pedido: iniciar, ...doTecnico, quemPede: autonomo }))).toMatchObject({
+      ok: true,
+    });
+  });
+
+  it('segue as transições: não inicia OS só aberta, nem pausa OS agendada', () => {
+    expect(
+      decidir(
+        contexto({ pedido: iniciar, ...doTecnico, ordem: { ...agendada, status: 'aberta' } }),
+      ),
+    ).toMatchObject({ codigo: 'transicao_invalida', mensagem: /Agende a OS/ });
+    expect(decidir(contexto({ pedido: pausar, ...doTecnico }))).toMatchObject({
+      codigo: 'transicao_invalida',
+    });
+    expect(
+      decidir(
+        contexto({ pedido: iniciar, ...doTecnico, ordem: { ...agendada, status: 'concluida' } }),
+      ),
+    ).toMatchObject({ codigo: 'transicao_invalida', mensagem: /encerrada/ });
+  });
+
+  it('técnico continua sem poder agendar ou cancelar', () => {
+    expect(decidir(contexto({ pedido: cancelar, ...doTecnico }))).toMatchObject({
+      codigo: 'sem_permissao',
+    });
+  });
+});

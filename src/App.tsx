@@ -1,9 +1,17 @@
 import { lazy, Suspense } from 'react';
-import { Navigate, Outlet, Route, Routes } from 'react-router';
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 import { RotaProtegida } from '@/components/auth/RotaProtegida';
 import { CarregandoLista } from '@/components/pagina/EstadosConsulta';
 import { LayoutEscritorio } from '@/components/layout/LayoutEscritorio';
+import { LayoutTecnico } from '@/components/layout/LayoutTecnico';
 import { OrganizacaoProvider } from '@/components/layout/OrganizacaoProvider';
+import { abreNoModoTecnico } from '@/domain/organizacao/tipos';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useOrganizacao } from '@/hooks/useOrganizacao';
+import { ExecucaoOrdem } from '@/pages/campo/ExecucaoOrdem';
+import { Hoje } from '@/pages/campo/Hoje';
+import { MinhasOrdens } from '@/pages/campo/MinhasOrdens';
+import { Perfil } from '@/pages/campo/Perfil';
 import { Entrar } from '@/pages/auth/Entrar';
 import { RecuperarSenha } from '@/pages/auth/RecuperarSenha';
 import { RedefinirSenha } from '@/pages/auth/RedefinirSenha';
@@ -36,6 +44,17 @@ function AreaLogada() {
   );
 }
 
+// Na tela inicial, o técnico vai direto para o modo técnico (antes de desenhar o escritório).
+function EscritorioOuTecnico() {
+  const { papeis } = useOrganizacao();
+  const telaPequena = useIsMobile();
+  const { pathname } = useLocation();
+  if (pathname === '/' && abreNoModoTecnico(papeis, telaPequena)) {
+    return <Navigate to="/campo" replace />;
+  }
+  return <LayoutEscritorio />;
+}
+
 function App() {
   return (
     <Routes>
@@ -44,7 +63,13 @@ function App() {
       <Route path={ROTA_REDEFINIR_SENHA} element={<RedefinirSenha />} />
       <Route element={<RotaProtegida />}>
         <Route element={<AreaLogada />}>
-          <Route element={<LayoutEscritorio />}>
+          <Route path="/campo" element={<LayoutTecnico />}>
+            <Route index element={<Hoje />} />
+            <Route path="ordens" element={<MinhasOrdens />} />
+            <Route path="ordens/:id" element={<ExecucaoOrdem />} />
+            <Route path="perfil" element={<Perfil />} />
+          </Route>
+          <Route element={<EscritorioOuTecnico />}>
             <Route path="/" element={<Inicio />} />
             <Route path="/ordens" element={<ListaOrdens />} />
             <Route path="/ordens/nova" element={<NovaOrdem />} />

@@ -1,6 +1,7 @@
 import type { DadosLocal, LocalAtendimento } from '@/domain/cliente/local';
 import type { Cliente, DadosCliente } from '@/domain/cliente/tipos';
 import type { DadosEquipamento, Equipamento } from '@/domain/equipamento/tipos';
+import type { AtividadeExecucao, FotoDaOrdem, ItemChecklist } from '@/domain/ordem/execucao';
 import type { DadosOrdem, EventoOrdem, Ordem } from '@/domain/ordem/tipos';
 import type { Papel } from '@/domain/organizacao/tipos';
 import type { Database, Tables, TablesInsert } from './tipos-banco';
@@ -186,6 +187,38 @@ export function argumentosOrdem(dados: DadosOrdem): ArgumentosOrdem {
     // O gerador de tipos não marca parâmetros de função como opcionais; a função aceita null.
     p_solicitante: dados.solicitante as string,
     p_equipamento_ids: dados.equipamentoIds,
+  };
+}
+
+export function mapearItemChecklist(linha: Tables<'checklist_respostas'>): ItemChecklist {
+  return {
+    posicao: linha.posicao,
+    item: linha.item,
+    resposta: linha.resposta,
+    observacao: linha.observacao,
+  };
+}
+
+export type LinhaAtividade = Tables<'ordem_servico_itens'> & { usuario: Pessoa | null };
+
+export function mapearAtividade(linha: LinhaAtividade): AtividadeExecucao {
+  return {
+    id: linha.id,
+    descricao: linha.descricao,
+    criadoPorNome: nomeDaPessoa(linha.usuario),
+    criadoEm: linha.criado_em,
+  };
+}
+
+export type LinhaFoto = Tables<'anexos'> & { usuario: Pessoa | null };
+
+export function mapearFoto(linha: LinhaFoto): FotoDaOrdem {
+  return {
+    id: linha.id,
+    caminho: linha.caminho,
+    legenda: linha.legenda,
+    tiradaEm: linha.tirada_em,
+    criadoPorNome: nomeDaPessoa(linha.usuario),
   };
 }
 

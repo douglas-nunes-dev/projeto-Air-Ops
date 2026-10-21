@@ -13,4 +13,7 @@ export interface OrdemRepository {
   /** Agenda ou reagenda. Passa pelo servidor, que confere papel e transição (seção 11). */
   agendar(id: string, dados: DadosAgendamento): Promise<void>;
   cancelar(id: string, motivo: string): Promise<void>;
+  /** Inicia (de agendada) ou retoma (de pausada). Só o técnico da OS (Edge Function). */
+  iniciar(id: string): Promise<void>;
+  pausar(id: string, motivo: string): Promise<void>;
 }

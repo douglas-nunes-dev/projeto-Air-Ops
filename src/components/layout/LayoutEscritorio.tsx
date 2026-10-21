@@ -6,6 +6,7 @@ import {
   LogOut,
   Plus,
   Settings,
+  Smartphone,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -93,8 +94,14 @@ function ItemDoMenu({ item }: { item: ItemMenu }) {
   );
 }
 
+// Para quem também é técnico (ex.: modo autônomo), atalho para a tela de execução.
+const ITEM_MODO_TECNICO: ItemMenu = { rotulo: 'Modo técnico', icone: Smartphone, para: '/campo' };
+
 function MenuLateral() {
   const organizacao = useOrganizacao();
+  const itens = organizacao.papeis.includes('tecnico')
+    ? [...ITENS_MENU.slice(0, -1), ITEM_MODO_TECNICO, ...ITENS_MENU.slice(-1)]
+    : ITENS_MENU;
 
   return (
     <Sidebar>
@@ -111,7 +118,7 @@ function MenuLateral() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {ITENS_MENU.map((item) => (
+              {itens.map((item) => (
                 <ItemDoMenu key={item.rotulo} item={item} />
               ))}
             </SidebarMenu>

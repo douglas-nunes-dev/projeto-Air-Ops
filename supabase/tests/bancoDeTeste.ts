@@ -21,6 +21,26 @@ const IMITACAO_SUPABASE = `
     $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant usage on schema public, auth to anon, authenticated, service_role;
   grant execute on function auth.uid() to anon, authenticated;
+  -- Storage: só as colunas que as migrations e os testes usam. Como no Supabase, o RLS
+  -- de storage.objects vem ligado e sem políticas (as migrations criam as nossas).
+  create schema storage;
+  create table storage.buckets (
+    id text primary key,
+    name text not null,
+    public boolean not null default false,
+    file_size_limit bigint,
+    allowed_mime_types text[]
+  );
+  create table storage.objects (
+    id uuid primary key default gen_random_uuid(),
+    bucket_id text references storage.buckets (id),
+    name text not null,
+    owner uuid default auth.uid(),
+    unique (bucket_id, name)
+  );
+  alter table storage.objects enable row level security;
+  grant usage on schema storage to anon, authenticated, service_role;
+  grant select, insert, update, delete on storage.objects to anon, authenticated, service_role;
   -- O Supabase libera tudo por padrão nas tabelas novas; as migrations precisam restringir.
   alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 `;

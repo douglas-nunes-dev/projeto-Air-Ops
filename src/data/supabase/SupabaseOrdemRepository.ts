@@ -67,6 +67,14 @@ export class SupabaseOrdemRepository implements OrdemRepository {
     await chamarFuncao('alterar-status-ordem', { acao: 'cancelar', ordemId: id, motivo });
   }
 
+  async iniciar(id: string): Promise<void> {
+    await chamarFuncao('alterar-status-ordem', { acao: 'iniciar', ordemId: id });
+  }
+
+  async pausar(id: string, motivo: string): Promise<void> {
+    await chamarFuncao('alterar-status-ordem', { acao: 'pausar', ordemId: id, motivo });
+  }
+
   private async exigirOrdem(id: string): Promise<Ordem> {
     const linha = exigirDados(
       await obterClienteSupabase()

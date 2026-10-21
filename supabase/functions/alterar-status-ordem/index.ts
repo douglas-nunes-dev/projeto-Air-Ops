@@ -1,4 +1,5 @@
-// Edge Function: agenda, reagenda e cancela OS (seção 11, "operações sensíveis no servidor").
+// Edge Function: agenda, reagenda, cancela, inicia, pausa e retoma OS
+// (seção 11, "operações sensíveis no servidor").
 // Fina de propósito (regra 10 da seção 7): lê o pedido, busca os dados, pergunta às regras
 // (regras.ts) e grava. Usa a chave de serviço, então SEMPRE confere empresa e papel antes.
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0';

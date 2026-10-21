@@ -8,6 +8,7 @@ export const DURACAO_MINIMA = 15;
 export const DURACAO_MAXIMA = 720;
 export const MOTIVO_MINIMO = 5;
 export const MOTIVO_MAXIMO = 500;
+export const MOTIVO_PAUSA_MAXIMO = 200;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -20,7 +21,10 @@ export type Pedido =
       agendadaPara: string;
       duracaoMinutos: number;
     }
-  | { acao: 'cancelar'; ordemId: string; motivo: string };
+  | { acao: 'cancelar'; ordemId: string; motivo: string }
+  // Execução (etapa 4): iniciar também serve para retomar uma OS pausada.
+  | { acao: 'iniciar'; ordemId: string }
+  | { acao: 'pausar'; ordemId: string; motivo: string };
 
 export type CodigoErro =
   'sem_permissao' | 'nao_encontrado' | 'transicao_invalida' | 'dados_invalidos';
@@ -113,6 +117,20 @@ export function lerPedido(corpo: unknown): { ok: true; pedido: Pedido } | Recusa
     return { ok: true, pedido: { acao: 'cancelar', ordemId, motivo } };
   }
 
+  if (dados.acao === 'iniciar') return { ok: true, pedido: { acao: 'iniciar', ordemId } };
+
+  if (dados.acao === 'pausar') {
+    const motivo = texto(dados.motivo);
+    if (motivo.length < MOTIVO_MINIMO || motivo.length > MOTIVO_PAUSA_MAXIMO) {
+      return recusar(
+        'dados_invalidos',
+        `Escreva o motivo da pausa (de ${MOTIVO_MINIMO} a ${MOTIVO_PAUSA_MAXIMO} caracteres)`,
+        'motivo',
+      );
+    }
+    return { ok: true, pedido: { acao: 'pausar', ordemId, motivo } };
+  }
+
   return recusar('dados_invalidos', 'Ação desconhecida.');
 }
 
@@ -155,10 +173,22 @@ export function decidir(contexto: Contexto): { ok: true; gravacao: Gravacao } | 
 
   // Quem não é da empresa recebe "não encontrada": não revela que a OS existe.
   if (!ordem || !quemPede?.ativo) return recusar('nao_encontrado', 'OS não encontrada.');
+  if (pedido.acao === 'iniciar' || pedido.acao === 'pausar') {
+    return decidirExecucao(pedido, usuarioId, ordem, quemPede);
+  }
   if (!podeGerenciar(quemPede)) {
     return recusar('sem_permissao', 'Só administradores e gestores planejam e cancelam OS.');
   }
+  return decidirPlanejamento(pedido, usuarioId, ordem, tecnico);
+}
 
+/** Agendar, reagendar e cancelar (etapa 3): admin e gestor. */
+function decidirPlanejamento(
+  pedido: Extract<Pedido, { acao: 'agendar' | 'cancelar' }>,
+  usuarioId: string,
+  ordem: OrdemAtual,
+  tecnico: Vinculo,
+): { ok: true; gravacao: Gravacao } | Recusa {
   if (pedido.acao === 'cancelar') {
     if (!podeTransitar(ordem.status, 'cancelada')) {
       return recusar('transicao_invalida', 'Esta OS já foi encerrada e não pode ser cancelada.');
@@ -208,6 +238,68 @@ export function decidir(contexto: Contexto): { ok: true; gravacao: Gravacao } | 
       p_tipo_evento: reagendamento ? 'reagendamento' : 'mudanca_status',
       p_descricao: `${acao} para ${formatarHorario(pedido.agendadaPara)} — ${tecnico.nome}`,
       p_usuario_id: usuarioId,
+    },
+  };
+}
+
+/**
+ * Iniciar, retomar e pausar (etapa 4): só o técnico atribuído à OS. Admin e gestor acompanham,
+ * mas não registram a execução no lugar dele (rastreabilidade do atendimento em campo).
+ */
+function decidirExecucao(
+  pedido: Extract<Pedido, { acao: 'iniciar' | 'pausar' }>,
+  usuarioId: string,
+  ordem: OrdemAtual,
+  quemPede: NonNullable<Vinculo>,
+): { ok: true; gravacao: Gravacao } | Recusa {
+  if (ordem.tecnicoId !== usuarioId) {
+    // Técnico de outra OS nem enxerga esta (RLS): responde como se ela não existisse.
+    return podeGerenciar(quemPede)
+      ? recusar('sem_permissao', 'Só o técnico da OS registra a execução.')
+      : recusar('nao_encontrado', 'OS não encontrada.');
+  }
+  if (!quemPede.papeis.includes('tecnico')) {
+    return recusar('sem_permissao', 'Só o técnico da OS registra a execução.');
+  }
+
+  // Mantém o planejado; muda só o status.
+  const manter = {
+    p_ordem_id: pedido.ordemId,
+    p_status_esperado: ordem.status,
+    p_tecnico_id: ordem.tecnicoId,
+    p_agendada_para: ordem.agendadaPara,
+    p_duracao_minutos: ordem.duracaoMinutos,
+    p_motivo_cancelamento: null,
+    p_tipo_evento: 'mudanca_status' as const,
+    p_usuario_id: usuarioId,
+  };
+
+  if (pedido.acao === 'pausar') {
+    if (!podeTransitar(ordem.status, 'pausada')) {
+      return recusar('transicao_invalida', 'Só dá para pausar uma OS em execução.');
+    }
+    return {
+      ok: true,
+      gravacao: { ...manter, p_status_novo: 'pausada', p_descricao: `Pausada: ${pedido.motivo}` },
+    };
+  }
+
+  if (!podeTransitar(ordem.status, 'em_execucao')) {
+    const mensagens: Partial<Record<StatusOrdem, string>> = {
+      aberta: 'Agende a OS antes de iniciar a execução.',
+      em_execucao: 'A execução desta OS já está em andamento.',
+    };
+    return recusar(
+      'transicao_invalida',
+      mensagens[ordem.status] ?? 'Esta OS já foi encerrada e não pode ser executada.',
+    );
+  }
+  return {
+    ok: true,
+    gravacao: {
+      ...manter,
+      p_status_novo: 'em_execucao',
+      p_descricao: ordem.status === 'pausada' ? 'Execução retomada' : 'Execução iniciada',
     },
   };
 }

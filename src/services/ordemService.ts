@@ -14,7 +14,14 @@ import {
   type Ordem,
   type OrdemFormulario,
 } from '@/domain/ordem/tipos';
+import {
+  PausaFormularioSchema,
+  podeIniciar,
+  podePausar,
+  type PausaFormulario,
+} from '@/domain/ordem/execucao';
 import { podeEditarAbertura } from '@/domain/ordem/transicoes';
+import type { Papel } from '@/domain/organizacao/tipos';
 
 export async function listarOrdens(organizacaoId: string): Promise<Ordem[]> {
   return ordemRepository.listar(organizacaoId);
@@ -70,4 +77,31 @@ export async function cancelarOrdem(
     });
   }
   await ordemRepository.cancelar(ordem.id, CancelamentoFormularioSchema.parse(formulario).motivo);
+}
+
+// Execução (etapa 4): só o técnico da OS. Garantido pela Edge Function "alterar-status-ordem".
+
+type QuemUsa = { usuarioId: string; papeis: Papel[] };
+
+/** Inicia uma OS agendada ou retoma uma pausada. */
+export async function iniciarExecucao(ordem: Ordem, quem: QuemUsa): Promise<void> {
+  if (!podeIniciar(ordem, quem)) {
+    throw new ErroDados('dados_invalidos', {
+      mensagem: 'Só o técnico da OS inicia a execução, com ela agendada ou pausada.',
+    });
+  }
+  await ordemRepository.iniciar(ordem.id);
+}
+
+export async function pausarExecucao(
+  ordem: Ordem,
+  quem: QuemUsa,
+  formulario: PausaFormulario,
+): Promise<void> {
+  if (!podePausar(ordem, quem)) {
+    throw new ErroDados('dados_invalidos', {
+      mensagem: 'Só o técnico da OS pausa a execução, com ela em andamento.',
+    });
+  }
+  await ordemRepository.pausar(ordem.id, PausaFormularioSchema.parse(formulario));
 }

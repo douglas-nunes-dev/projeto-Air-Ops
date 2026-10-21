@@ -9,6 +9,7 @@ import {
   type RecuperacaoSenha,
   type UsuarioLogado,
 } from '@/domain/auth/tipos';
+import { limparFotosDoAparelho } from './storageService';
 
 export const ROTA_REDEFINIR_SENHA = '/redefinir-senha';
 
@@ -19,6 +20,8 @@ export async function entrar(dados: Credenciais): Promise<UsuarioLogado> {
 
 export async function sair(): Promise<void> {
   await authProvider.sair();
+  // Fotos de clientes não ficam no aparelho depois que a pessoa sai (seção 11).
+  await limparFotosDoAparelho().catch(() => undefined);
 }
 
 export async function usuarioAtual(): Promise<UsuarioLogado | null> {

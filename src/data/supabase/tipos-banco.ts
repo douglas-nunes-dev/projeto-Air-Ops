@@ -8,6 +8,143 @@ export type Database = {
   };
   public: {
     Tables: {
+      anexos: {
+        Row: {
+          caminho: string;
+          criado_em: string;
+          criado_por: string | null;
+          id: string;
+          legenda: string | null;
+          ordem_id: string;
+          organizacao_id: string;
+          tamanho_bytes: number;
+          tirada_em: string;
+        };
+        Insert: {
+          caminho: string;
+          criado_em?: string;
+          criado_por?: string | null;
+          id: string;
+          legenda?: string | null;
+          ordem_id: string;
+          organizacao_id: string;
+          tamanho_bytes: number;
+          tirada_em: string;
+        };
+        Update: {
+          caminho?: string;
+          criado_em?: string;
+          criado_por?: string | null;
+          id?: string;
+          legenda?: string | null;
+          ordem_id?: string;
+          organizacao_id?: string;
+          tamanho_bytes?: number;
+          tirada_em?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'anexos_criado_por_fkey';
+            columns: ['criado_por'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'anexos_ordem_id_organizacao_id_fkey';
+            columns: ['ordem_id', 'organizacao_id'];
+            isOneToOne: false;
+            referencedRelation: 'ordens_servico';
+            referencedColumns: ['id', 'organizacao_id'];
+          },
+        ];
+      };
+      checklist_modelos: {
+        Row: {
+          atualizado_em: string;
+          criado_em: string;
+          id: string;
+          itens: string[];
+          nome: string;
+          organizacao_id: string;
+          tipo_servico: Database['public']['Enums']['tipo_servico'];
+        };
+        Insert: {
+          atualizado_em?: string;
+          criado_em?: string;
+          id?: string;
+          itens: string[];
+          nome: string;
+          organizacao_id: string;
+          tipo_servico: Database['public']['Enums']['tipo_servico'];
+        };
+        Update: {
+          atualizado_em?: string;
+          criado_em?: string;
+          id?: string;
+          itens?: string[];
+          nome?: string;
+          organizacao_id?: string;
+          tipo_servico?: Database['public']['Enums']['tipo_servico'];
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'checklist_modelos_organizacao_id_fkey';
+            columns: ['organizacao_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizacoes';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      checklist_respostas: {
+        Row: {
+          item: string;
+          observacao: string | null;
+          ordem_id: string;
+          organizacao_id: string;
+          posicao: number;
+          respondido_em: string | null;
+          respondido_por: string | null;
+          resposta: Database['public']['Enums']['resposta_checklist'] | null;
+        };
+        Insert: {
+          item: string;
+          observacao?: string | null;
+          ordem_id: string;
+          organizacao_id: string;
+          posicao: number;
+          respondido_em?: string | null;
+          respondido_por?: string | null;
+          resposta?: Database['public']['Enums']['resposta_checklist'] | null;
+        };
+        Update: {
+          item?: string;
+          observacao?: string | null;
+          ordem_id?: string;
+          organizacao_id?: string;
+          posicao?: number;
+          respondido_em?: string | null;
+          respondido_por?: string | null;
+          resposta?: Database['public']['Enums']['resposta_checklist'] | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'checklist_respostas_ordem_id_organizacao_id_fkey';
+            columns: ['ordem_id', 'organizacao_id'];
+            isOneToOne: false;
+            referencedRelation: 'ordens_servico';
+            referencedColumns: ['id', 'organizacao_id'];
+          },
+          {
+            foreignKeyName: 'checklist_respostas_respondido_por_fkey';
+            columns: ['respondido_por'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       clientes: {
         Row: {
           ativo: boolean;
@@ -278,6 +415,93 @@ export type Database = {
           },
         ];
       };
+      ordem_servico_execucao: {
+        Row: {
+          atualizado_em: string;
+          atualizado_por: string | null;
+          criado_em: string;
+          diagnostico: string | null;
+          materiais: string | null;
+          ordem_id: string;
+          organizacao_id: string;
+        };
+        Insert: {
+          atualizado_em?: string;
+          atualizado_por?: string | null;
+          criado_em?: string;
+          diagnostico?: string | null;
+          materiais?: string | null;
+          ordem_id: string;
+          organizacao_id: string;
+        };
+        Update: {
+          atualizado_em?: string;
+          atualizado_por?: string | null;
+          criado_em?: string;
+          diagnostico?: string | null;
+          materiais?: string | null;
+          ordem_id?: string;
+          organizacao_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'ordem_servico_execucao_atualizado_por_fkey';
+            columns: ['atualizado_por'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'ordem_servico_execucao_ordem_id_organizacao_id_fkey';
+            columns: ['ordem_id', 'organizacao_id'];
+            isOneToOne: false;
+            referencedRelation: 'ordens_servico';
+            referencedColumns: ['id', 'organizacao_id'];
+          },
+        ];
+      };
+      ordem_servico_itens: {
+        Row: {
+          criado_em: string;
+          criado_por: string | null;
+          descricao: string;
+          id: string;
+          ordem_id: string;
+          organizacao_id: string;
+        };
+        Insert: {
+          criado_em?: string;
+          criado_por?: string | null;
+          descricao: string;
+          id?: string;
+          ordem_id: string;
+          organizacao_id: string;
+        };
+        Update: {
+          criado_em?: string;
+          criado_por?: string | null;
+          descricao?: string;
+          id?: string;
+          ordem_id?: string;
+          organizacao_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'ordem_servico_itens_criado_por_fkey';
+            columns: ['criado_por'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'ordem_servico_itens_ordem_id_organizacao_id_fkey';
+            columns: ['ordem_id', 'organizacao_id'];
+            isOneToOne: false;
+            referencedRelation: 'ordens_servico';
+            referencedColumns: ['id', 'organizacao_id'];
+          },
+        ];
+      };
       ordens_servico: {
         Row: {
           aberta_por: string | null;
@@ -495,6 +719,7 @@ export type Database = {
         };
         Returns: undefined;
       };
+      preparar_checklist: { Args: { p_ordem_id: string }; Returns: undefined };
       registrar_mudanca_status: {
         Args: {
           p_agendada_para: string;
@@ -514,6 +739,7 @@ export type Database = {
     Enums: {
       papel_usuario: 'admin' | 'gestor' | 'tecnico';
       prioridade_ordem: 'baixa' | 'media' | 'alta' | 'urgente';
+      resposta_checklist: 'ok' | 'nao_conforme' | 'nao_se_aplica';
       status_ordem: 'aberta' | 'agendada' | 'em_execucao' | 'pausada' | 'concluida' | 'cancelada';
       tipo_equipamento:
         | 'split'
@@ -654,6 +880,7 @@ export const Constants = {
     Enums: {
       papel_usuario: ['admin', 'gestor', 'tecnico'],
       prioridade_ordem: ['baixa', 'media', 'alta', 'urgente'],
+      resposta_checklist: ['ok', 'nao_conforme', 'nao_se_aplica'],
       status_ordem: ['aberta', 'agendada', 'em_execucao', 'pausada', 'concluida', 'cancelada'],
       tipo_equipamento: [
         'split',

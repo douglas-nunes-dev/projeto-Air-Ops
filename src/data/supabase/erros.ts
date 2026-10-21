@@ -46,6 +46,34 @@ export function converterErroBanco(erro: PostgrestError): ErroDados {
   return new ErroDados('desconhecido', { cause: erro });
 }
 
+type ErroStorage = { message: string; statusCode?: string; status?: number };
+
+function codigoHttp(erro: ErroStorage): string {
+  return erro.statusCode ?? String(erro.status ?? '');
+}
+
+/** O arquivo já estava lá: um envio anterior chegou antes de o sinal cair. */
+export function eArquivoRepetido(erro: ErroStorage): boolean {
+  return codigoHttp(erro) === '409' || erro.message.includes('already exists');
+}
+
+export function converterErroStorage(erro: ErroStorage): ErroDados {
+  const codigo = codigoHttp(erro);
+  if (erro.message.includes('Failed to fetch') || erro.message.includes('NetworkError')) {
+    return new ErroDados('sem_conexao', { cause: erro });
+  }
+  if (codigo === '403' || erro.message.includes('row-level security')) {
+    return new ErroDados('sem_permissao', { cause: erro });
+  }
+  if (codigo === '413') {
+    return new ErroDados('dados_invalidos', {
+      mensagem: 'A foto é grande demais para enviar.',
+      cause: erro,
+    });
+  }
+  return new ErroDados('desconhecido', { cause: erro });
+}
+
 /** Lança o erro já convertido, ou devolve os dados quando deu certo. */
 export function exigirDados<T>(resposta: {
   data: T;

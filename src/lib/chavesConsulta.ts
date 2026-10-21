@@ -11,4 +11,8 @@ export const chaves = {
   ordens: (organizacaoId: string) => ['ordens', organizacaoId] as const,
   ordem: (id: string) => ['ordem', id] as const,
   eventosDaOrdem: (id: string) => ['ordem', id, 'eventos'] as const,
+  execucao: (id: string) => ['ordem', id, 'execucao'] as const,
+  /** Endereços temporários das fotos (mudam quando entra ou sai uma foto). */
+  enderecosFotos: (ordemId: string, caminhos: string[]) =>
+    ['ordem', ordemId, 'fotos', caminhos.join('|')] as const,
 };

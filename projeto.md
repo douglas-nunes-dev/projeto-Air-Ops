@@ -409,6 +409,7 @@ src/
       filtros.ts             ✅ filtros da lista (situação, prioridade, técnico, período)
       preenchimento.ts       ✅ OS aberta a partir do cliente ou do equipamento
       planejamento.ts        ✅ agendar, cancelar, atrasada, de hoje, conflito de horário
+      execucao.ts            ✅ quem executa, tempo trabalhado, pausa, checklist, anotações, fotos
     ia/
       promptRascunhoOS.ts
   services/                  ← o que as telas usam
@@ -416,36 +417,42 @@ src/
     organizacaoService.ts    ✅
     clienteService.ts        ✅ clientes e locais
     equipamentoService.ts    ✅
-    ordemService.ts          ✅
-    storageService.ts
+    ordemService.ts          ✅ inclui iniciar, pausar e retomar
+    execucaoService.ts       ✅ checklist, diagnóstico, materiais e atividades
+    storageService.ts        ✅ fotos: fila no aparelho, envio, endereços temporários
     iaService.ts
   data/
     index.ts                 ✅ ÚNICO ponto que escolhe a implementação
-    repositories/            ✅ interfaces (AuthProvider, Organizacao, Cliente, Local, Equipamento, Ordem, Clima)
+    repositories/            ✅ interfaces (AuthProvider, Organizacao, Cliente, Local, Equipamento, Ordem,
+                                Execucao, StorageProvider, FilaFotos, Clima)
     clima/                   ✅ clima atual e nome da cidade (Open-Meteo e BigDataCloud)
+    fila/                    ✅ fila de fotos no IndexedDB (lib idb)
     supabase/                ✅ implementação atual (único lugar com Supabase)
       client.ts              ✅ cliente criado no primeiro uso
       tipos-banco.ts         ✅ gerado com `npm run db:tipos` (não editar à mão)
       mapeadores.ts          ✅ banco (snake_case) ↔ domínio (camelCase)
       erros.ts               ✅ erros do Postgres → ErroDados com mensagem em português
     api/                     ← implementação futura (API Node)
-  pages/                     ✅ auth/, clientes/, equipamentos/, ordens/, agenda/
+  pages/                     ✅ auth/, clientes/, equipamentos/, ordens/, agenda/, campo/ (técnico)
   components/
     ui/                      ✅ shadcn (só visual)
-    layout/                  ✅ menu lateral (com rodapé de saudação e clima), busca geral, empresa do usuário
+    layout/                  ✅ escritório (menu lateral, busca geral) e técnico (menu inferior)
     ordem/                   ✅ etiquetas de status e prioridade
+    execucao/                ✅ checklist, anotações, atividades, fotos e resumo (editável ou só leitura)
     formulario/              ✅ campos ligados ao React Hook Form
     pagina/                  ✅ cabeçalho, busca, estados de carregando/erro
     tabela/                  ✅ tabela com busca, ordenação e paginação
-  hooks/                     ✅ useSessao, useOrganizacao, useAgora (relógio), useLocalizacao
-  lib/                       ✅ utilitários genéricos (texto, datas, chaves do cache)
+  hooks/                     ✅ useSessao, useOrganizacao, usePessoaLogada, useAgora (relógio),
+                                useLocalizacao, useFotosPendentes, useEnvioDeFotos
+  lib/                       ✅ utilitários genéricos (texto, datas, chaves do cache, redução de fotos)
   test/                      ✅ preparação e dados de exemplo dos testes de tela
 supabase/
   migrations/                ✅ SQL versionado
   tests/                     ✅ testes de RLS e regras do banco (PGlite)
   seed.sql                   ✅ dados de exemplo fictícios
   functions/                 ✅ Edge Functions (finas, chamam domain/)
-    alterar-status-ordem/    ✅ agendar, reagendar e cancelar (index.ts = Deno; regras.ts = TS puro)
+    alterar-status-ordem/    ✅ agendar, reagendar, cancelar, iniciar, pausar e retomar
+                                (index.ts = Deno; regras.ts = TS puro)
 docs/
   pdf/                       ← mockups, roteiro de entrevista e materiais de referência
   imagens/                   ← identidade visual (logos)
@@ -526,9 +533,10 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 | `ordens_servico` | Cliente, local, problema, prioridade, status, técnico, horário agendado, `duracao_minutos`, `motivo_cancelamento`, `os_origem_id` (retorno) |
 | `ordem_servico_equipamentos` | Equipamentos atendidos na OS (uma preventiva pode cobrir vários) |
 | `ordem_servico_eventos` | Histórico de status, atribuições e alterações relevantes |
-| `ordem_servico_itens` | Atividades e horas executadas |
-| `checklist_modelos` | Modelo por tipo de serviço (ex.: "Preventiva split") |
-| `checklist_respostas` | O que foi preenchido em cada OS |
+| `ordem_servico_execucao` | Diagnóstico e materiais (texto livre) de cada OS |
+| `ordem_servico_itens` | Atividades executadas (o tempo vem dos eventos de status, não é digitado) |
+| `checklist_modelos` | Modelo por tipo de serviço em cada empresa (preventiva, corretiva, instalação) |
+| `checklist_respostas` | Itens **copiados** do modelo para cada OS e a resposta (OK, não conforme, não se aplica) |
 | `anexos` | **Caminho** das fotos no Storage (nunca a URL completa) |
 | `assinaturas` | Assinatura do cliente com nome, data e caminho da imagem |
 
@@ -555,6 +563,7 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 - **Histórico pelo banco:** abertura e edição de OS geram a linha em `ordem_servico_eventos` por gatilho, com quem fez e o que mudou. O app não grava no histórico diretamente.
 - **Mudança de status:** gravada só pela função `registrar_mudanca_status` (OS e histórico na mesma transação), que só a chave de serviço da Edge Function executa. Ela recebe o status esperado: se outra pessoa mudou a OS no meio do caminho, nada é gravado.
 - **Planejamento:** `duracao_minutos` (padrão 60) monta a agenda; OS `agendada` sempre tem técnico e horário, e OS `cancelada` sempre tem `motivo_cancelamento` (constraints).
+- **Execução (etapa 4):** só o técnico atribuído grava, e só com a OS em execução (fotos também pausada). Toda empresa nasce com modelos de checklist padrão (gatilho em `organizacoes`); `preparar_checklist` copia os itens do modelo para a OS, então mudar o modelo depois não altera OS antigas. Quem respondeu e quando vêm do banco. O **tempo trabalhado** é a soma dos trechos entre "iniciar/retomar" e "pausar" no histórico (`src/domain/ordem/execucao.ts`). Fotos: caminho fixo `empresa/OS/id.jpg` (constraint), id gerado no celular para o reenvio não duplicar.
 - CPF/CNPJ, telefone e CEP guardados **só com dígitos**; a pontuação é colocada na tela.
 
 ---
@@ -584,12 +593,13 @@ As permissões da seção 5 são garantidas **no RLS**, não só escondendo bot�
 | `tecnico` | Somente as atribuídas a ele | Somente leitura | Sem acesso |
 
 - Testes automatizados também para papéis: um técnico não lê OS de outro técnico nem altera cadastros.
+- Exceção consciente (aviso do Security Advisor): `preparar_checklist` é `SECURITY DEFINER` e pode ser chamada por usuários logados. É de propósito: ela confere primeiro se quem chama é o técnico da OS em execução e é o único caminho para criar os itens do checklist, sempre copiados do modelo (com `SECURITY INVOKER`, o app precisaria poder inserir itens à mão).
 - Exceção consciente: o `gestor` **lê** a lista de vínculos da empresa (`organizacao_usuarios`), porque precisa escolher o técnico ao agendar uma OS. Ele não altera vínculos nem papéis.
 
 ### Operações sensíveis no servidor
 
 - Mudança de status, conclusão, cancelamento e assinatura passam por uma **Edge Function** que reutiliza `src/domain/ordem/transicoes.ts`, confere organização e papel do usuário e grava o evento em `ordem_servico_eventos`.
-  - **Feito na etapa 3:** `alterar-status-ordem` agenda, reagenda e cancela. O `transicoes.ts` não tem importações, por isso o Deno usa o mesmo arquivo do app (a publicação leva o arquivo de `src/` junto). A checagem automática de token do Supabase está desligada (`verify_jwt = false` no `config.toml`) porque a função confere o login com `auth.getUser`; quem não é da empresa recebe "não encontrada".
+  - **Feito na etapa 3:** `alterar-status-ordem` agenda, reagenda e cancela. **Etapa 4:** inicia, pausa (com motivo) e retoma, só pelo técnico atribuído à OS (admin e gestor recebem "sem permissão"; técnico de outra OS, "não encontrada"). O `transicoes.ts` não tem importações, por isso o Deno usa o mesmo arquivo do app (a publicação leva o arquivo de `src/` junto). A checagem automática de token do Supabase está desligada (`verify_jwt = false` no `config.toml`) porque a função confere o login com `auth.getUser`; quem não é da empresa recebe "não encontrada".
 - O usuário comum **não pode alterar a coluna `status` diretamente** (permissão de coluna no banco); só a Edge Function altera.
 - OS `concluida` ou `cancelada` não pode mais ser editada; a assinatura não pode ser trocada depois de registrada.
 - Isso respeita a regra 12 da seção 7: o banco só bloqueia; a regra de negócio continua em TypeScript.
@@ -610,10 +620,10 @@ As permissões da seção 5 são garantidas **no RLS**, não só escondendo bot�
 
 ### Arquivos (fotos, assinaturas e PDFs)
 
-- Buckets do Storage privados, com políticas por organização.
+- Buckets do Storage privados, com políticas por organização. **Feito na etapa 4:** bucket `anexos` (só JPEG, até 10 MB); o técnico envia só para a pasta da OS que está executando; quem lê a OS vê as fotos dela.
 - Acesso por **URLs assinadas com validade curta** (ex.: 1 hora); nunca URLs públicas.
 - Aceitar apenas imagens e PDF, com limite de tamanho por arquivo.
-- **Fila de fotos no celular (IndexedDB):** apagar as fotos da fila após o envio e ao sair da conta.
+- **Fila de fotos no celular (IndexedDB):** apagar as fotos da fila após o envio e ao sair da conta. **Feito na etapa 4:** as fotos são reduzidas no celular (lado maior 1600 px, JPEG) e saem da fila ao serem enviadas; "Sair" apaga a fila e avisa antes se houver fotos não enviadas.
 
 ### Backup e auditoria
 
@@ -659,8 +669,8 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes
 | 1. Cadastros | Clientes, locais e equipamentos | ✅ Concluída |
 | 2. Abertura de OS | Formulário de abertura e lista com filtros | ✅ Concluída |
 | 3. Planejamento | Agendamento, atribuição e agenda por técnico | ✅ Concluída |
-| 4. Execução | Tela do técnico: diagnóstico, checklist, tempo, fotos com fila | ⏳ Próxima |
-| 5. Conclusão | Assinatura, revisão, encerramento e PDF | |
+| 4. Execução | Tela do técnico: diagnóstico, checklist, tempo, fotos com fila | ✅ Concluída |
+| 5. Conclusão | Assinatura, revisão, encerramento e PDF | ⏳ Próxima |
 | 6. Histórico | Linha do tempo por equipamento e por cliente | |
 | 7. IA | Mensagem → rascunho de OS | |
 | 8. Preventiva simples | Periodicidade e lista de vencimentos | |
@@ -728,9 +738,27 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes
 - [x] Agenda (FullCalendar v7): dia, semana e lista; filtro por técnico; arrastar ou esticar um bloco reagenda; lista "Aguardando agendamento"; carregada só quando a tela é aberta
 - [x] Lista de OS com filtro "Atrasadas" e coluna "Agendada para"; painel com OS atrasadas, atendimentos de hoje e agenda do dia
 - [x] Migration aplicada na nuvem (`supabase db push`) e Edge Function publicada (`npx supabase functions deploy alterar-status-ordem --use-api`); sem login, a função responde 401
-- [ ] **Teste no app de verdade** (com login): agendar a OS 1, reagendar arrastando na Agenda e cancelar uma OS
+- [x] **Teste no app de verdade** (com login): agendar a OS 1, reagendar arrastando na Agenda e cancelar uma OS
 
 > **Etapa 3 concluída.** Atrasada = agendada cujo horário de início passou sem a execução começar. O aviso de conflito de horário não bloqueia (às vezes o técnico atende dois chamados no mesmo prédio). Pausar e iniciar a execução chegam na etapa 4, pela mesma Edge Function.
+
+### Checklist da etapa 4
+
+Decisões: **modelos de checklist prontos** por tipo de serviço; **tempo automático** (Iniciar, Pausar e Retomar); **só o técnico da OS registra a execução** (admin e gestor acompanham).
+
+- [x] Migration: `checklist_modelos` (com os modelos padrão para as empresas atuais e futuras), `checklist_respostas`, `ordem_servico_execucao`, `ordem_servico_itens`, `anexos`, bucket `anexos` e políticas do Storage
+- [x] RLS: só o técnico atribuído grava, com a OS em execução (fotos também pausada); quem lê a OS lê a execução; ninguém cria itens de checklist à mão
+- [x] Testes do banco (`supabase/tests/execucao.test.ts`), inclusive o Storage, imitado no PGlite
+- [x] Edge Function: ações `iniciar` (também retoma) e `pausar` (com motivo), testadas em `regrasStatus.test.ts`
+- [x] Domínio: tempo trabalhado a partir dos eventos, motivo da pausa, permissões da execução (`execucao.ts`)
+- [x] Fotos: redução no celular, fila no IndexedDB, envio automático (ao abrir, quando o sinal volta e a cada 30 s), reenvio sem duplicar, recusa com "Descartar"
+- [x] Telas do técnico (`/campo`): Hoje, Minhas OS, Execução (iniciar/pausar/retomar, checklist com um toque, diagnóstico e materiais salvos ao sair do campo, atividades, fotos) e Perfil
+- [x] Entrada: quem é só técnico abre no modo técnico; modo autônomo abre nele no celular e no escritório no computador; item "Modo técnico" no menu
+- [x] Escritório: detalhe da OS mostra a execução (tempo, checklist, anotações, atividades, fotos) só para leitura e o atalho "Executar" para o técnico da OS
+- [x] **Aplicado na nuvem:** `npx supabase db push`, `npx supabase functions deploy alterar-status-ordem --use-api` e `npm run db:tipos`; sem login, a função responde 401
+- [ ] **Teste no app de verdade, no celular:** iniciar uma OS como técnico, responder o checklist, tirar foto sem sinal (modo avião) e ver a foto subir quando o sinal voltar, pausar e retomar
+
+> **Etapa 4 concluída no código.** A edição dos modelos de checklist pela empresa fica para a tela de Configurações. Concluir a OS (assinatura, revisão e PDF) é a etapa 5.
 
 ### Checklist antes do piloto
 
@@ -740,7 +768,7 @@ Itens que não travam o desenvolvimento, mas precisam estar prontos **antes de c
 - [ ] **Teste de restauração:** restaurar um backup num Supabase local (Docker) e conferir os dados
 - [ ] **E-mail próprio (SMTP)** no Supabase Auth: o servidor grátis do Supabase envia poucos e-mails por hora, o que não basta para confirmação de cadastro e recuperação de senha de vários usuários
 - [ ] **Publicar o app** (Vercel ou Netlify) e trocar no Supabase o `site_url` e os endereços de retorno de `localhost` para o endereço real
-- [ ] **Security Advisor** do painel do Supabase sem alertas (hoje há um: proteção contra senhas vazadas, recurso do plano Pro; rodar `npx supabase db advisors --linked`)
+- [ ] **Security Advisor** do painel do Supabase sem alertas (hoje há dois: proteção contra senhas vazadas, recurso do plano Pro, e `preparar_checklist`, exceção consciente da seção 11; rodar `npx supabase db advisors --linked`)
 - [ ] **Projeto ativo:** no plano grátis, o Supabase pausa o projeto após 7 dias sem uso; confirmar que isso não acontece durante o piloto (uso diário ou plano Pro)
 
 ---
@@ -823,7 +851,7 @@ A migração **não precisa ser de uma vez**. Caminho sugerido:
 ## 17. Decisões em aberto
 
 - [x] Campos obrigatórios de uma OS (decidido na etapa 2: cliente, local, tipo de serviço, prioridade e problema)
-- [ ] Modelos de checklist iniciais (ex.: preventiva split, corretiva, instalação)
+- [x] Modelos de checklist iniciais (decidido na etapa 4: preventiva split, corretiva e instalação; validar os itens com o piloto)
 - [ ] Conteúdo mínimo do relatório em PDF para ser aceito pelos contratantes (validar com o piloto)
 - [ ] Regras exatas do modo autônomo
 - [ ] Critérios formais de sucesso do piloto

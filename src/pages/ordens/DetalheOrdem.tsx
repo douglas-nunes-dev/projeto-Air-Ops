@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Ban, CalendarClock, CalendarPlus, Pencil } from 'lucide-react';
+import { Ban, CalendarClock, CalendarPlus, Pencil, Smartphone } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { toast } from 'sonner';
@@ -8,6 +8,8 @@ import { EtiquetaPrioridade, EtiquetaStatus } from '@/components/ordem/Etiquetas
 import { CabecalhoPagina } from '@/components/pagina/CabecalhoPagina';
 import { CarregandoLista, ErroConsulta } from '@/components/pagina/EstadosConsulta';
 import { InfoItem } from '@/components/pagina/InfoItem';
+import { ResumoExecucao } from '@/components/execucao/ResumoExecucao';
+import { eTecnicoDaOrdem, execucaoComecou } from '@/domain/ordem/execucao';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -24,8 +26,9 @@ import {
   ROTULOS_TIPO_SERVICO,
   type Ordem,
 } from '@/domain/ordem/tipos';
-import { podeEditarAbertura } from '@/domain/ordem/transicoes';
+import { podeEditarAbertura, statusFinal } from '@/domain/ordem/transicoes';
 import { useOrganizacao } from '@/hooks/useOrganizacao';
+import { usePessoaLogada } from '@/hooks/usePessoaLogada';
 import { chaves } from '@/lib/chavesConsulta';
 import { mensagemDeErro } from '@/lib/erros';
 import { formatarDataHora } from '@/lib/texto';
@@ -44,6 +47,7 @@ const CLASSE_LINK = 'text-primary underline-offset-4 hover:underline';
 export function DetalheOrdem() {
   const { id = '' } = useParams();
   const organizacao = useOrganizacao();
+  const pessoa = usePessoaLogada();
   const consulta = useQuery({ queryKey: chaves.ordem(id), queryFn: () => buscarOrdem(id) });
   const cache = useQueryClient();
   const [dialogo, setDialogo] = useState<'agendar' | 'cancelar' | null>(null);
@@ -99,6 +103,14 @@ export function DetalheOrdem() {
         }
         acoes={
           <>
+            {eTecnicoDaOrdem(ordem, pessoa) && !statusFinal(ordem.status) && (
+              <Button asChild>
+                <Link to={`/campo/ordens/${ordem.id}`}>
+                  <Smartphone />
+                  Executar
+                </Link>
+              </Button>
+            )}
             {mostrarAgendar && (
               <Button onClick={() => setDialogo('agendar')}>
                 <CalendarPlus />
@@ -221,6 +233,8 @@ export function DetalheOrdem() {
               )}
             </CardContent>
           </Card>
+
+          {execucaoComecou(ordem) && <ResumoExecucao ordem={ordem} />}
 
           <Historico ordem={ordem} />
         </div>
