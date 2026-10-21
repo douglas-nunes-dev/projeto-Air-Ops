@@ -47,9 +47,9 @@ export default defineConfig([
       ],
     },
   },
-  // Componentes do shadcn exportam variantes junto com o componente.
+  // Componentes do shadcn e utilitários de teste exportam outras coisas junto com componentes.
   {
-    files: ['src/components/ui/**/*.tsx'],
+    files: ['src/components/ui/**/*.tsx', 'src/test/**/*.tsx', 'src/**/*.test.tsx'],
     rules: {
       'react-refresh/only-export-components': 'off',
     },

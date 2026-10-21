@@ -166,7 +166,7 @@ cancelada    → (final)
 | Ícones | lucide-react | |
 | Tabelas e listas | TanStack Table | Filtros, ordenação e paginação |
 | Datas | date-fns (pt-BR) + calendário do shadcn | |
-| Agenda | FullCalendar (versão gratuita) ou Schedule-X | Visões diária e semanal, arrastar para reagendar |
+| Agenda | FullCalendar v7 (`@fullcalendar/react`, versão gratuita) | Visões diária e semanal, arrastar para reagendar. Plugins importados de `@fullcalendar/react/timegrid` etc. |
 | Avisos | sonner | |
 | Gráficos (fase 2) | Recharts via shadcn charts | |
 | Fonte | Inter (`@fontsource-variable/inter`) | |
@@ -367,7 +367,7 @@ Configurar o ESLint para bloquear importações do Supabase fora da pasta permit
 | PDF | `@react-pdf/renderer` | Relatório montado com componentes React |
 | Assinatura | `react-signature-canvas` | Captura na tela do celular |
 | Fila de fotos | IndexedDB (lib `idb`) | Guarda e reenvia quando o sinal voltar |
-| Testes | Vitest + Testing Library | Unitários, telas e testes de acesso (RLS) |
+| Testes | Vitest + Testing Library + PGlite | Unitários e telas (projeto `app`); migrations e RLS num Postgres em memória (projeto `banco`, em `supabase/tests/`) |
 | Qualidade | ESLint + Prettier + Husky/lint-staged | Verificação automática antes de cada commit |
 | Hospedagem | Vercel ou Netlify + Supabase (região São Paulo) + GitHub | Dados no Brasil ajudam na LGPD |
 
@@ -580,15 +580,15 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, o MVP pode ir para o p
 - [x] Instalar shadcn/ui (Radix + estilo Vega) e as bibliotecas da seção 8
 - [x] Configurar Vitest + Testing Library e PWA (`vite-plugin-pwa`)
 - [x] Instalar e inicializar Supabase CLI (`supabase/config.toml`)
-- [ ] Criar o projeto no Supabase (região São Paulo), `supabase link` e preencher `.env.local` a partir do `.env.example`
-- [ ] Primeira migration com `organizacoes`, `usuarios`, `organizacao_usuarios`
+- [x] Criar o projeto no Supabase (região São Paulo), `supabase link` e preencher `.env.local` a partir do `.env.example`
+- [x] Primeira migration com `organizacoes`, `usuarios`, `organizacao_usuarios` (aplicada na nuvem com `supabase db push`)
 - [x] Criar `.gitignore` com `.env`
-- [ ] Ativar o Dependabot no GitHub
-- [ ] Ícones do PWA (192, 512 e maskable) exportados do logo
-- [ ] Políticas RLS com `USING` e `WITH CHECK`, permissões por papel (seção 11) e testes de acesso cruzado entre empresas e entre papéis
-- [ ] Configurar Supabase Auth: confirmação de e-mail, senha mínima e limite de tentativas
-- [ ] `AuthProvider` (interface) + implementação Supabase + `authService`
-- [ ] Telas de login e recuperação de senha usando só `authService`
+- [x] Ativar o Dependabot no GitHub
+- [x] Ícones do PWA (192, 512 e maskable) exportados do logo
+- [x] Políticas RLS com `USING` e `WITH CHECK`, permissões por papel (seção 11) e testes de acesso cruzado entre empresas e entre papéis (`supabase/tests/`, rodam com PGlite)
+- [x] Configurar Supabase Auth: confirmação de e-mail, senha mínima e limite de tentativas (`supabase/config.toml`, aplicado com `supabase config push`; conferir a diferença antes, para não desligar o MFA da nuvem)
+- [x] `AuthProvider` (interface) + implementação Supabase + `authService`
+- [x] Telas de login e recuperação de senha usando só `authService`
 - [ ] Definir e testar backup e restauração do banco
 
 ---

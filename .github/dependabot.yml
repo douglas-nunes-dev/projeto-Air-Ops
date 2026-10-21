@@ -1,0 +1,14 @@
+# Seção 11: alertas e atualizações automáticas de dependências.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    groups:
+      # Atualizações pequenas juntas num único PR; versões novas (major) vêm separadas para revisar com calma.
+      dependencias-menores:
+        update-types: [minor, patch]

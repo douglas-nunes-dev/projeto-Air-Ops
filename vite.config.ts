@@ -12,6 +12,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      includeAssets: ['favicon.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'AirOps — Gestão Inteligente de Manutenção',
         short_name: 'AirOps',
@@ -21,8 +22,12 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         start_url: '/',
-        // Ícones (192, 512 e maskable) entram quando o logo for exportado em arquivos separados.
-        icons: [],
+        // Gerados a partir de docs/imagens/logo-identidade-visual.png.
+        icons: [
+          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
       },
     }),
   ],
@@ -32,7 +37,24 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'app',
+          include: ['src/**/*.test.{ts,tsx}'],
+          environment: 'jsdom',
+          setupFiles: ['./src/test/setup.ts'],
+        },
+      },
+      {
+        // Migrations e regras de acesso (RLS) num Postgres em memória (PGlite).
+        test: {
+          name: 'banco',
+          include: ['supabase/tests/**/*.test.ts'],
+          environment: 'node',
+        },
+      },
+    ],
   },
 });
