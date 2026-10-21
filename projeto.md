@@ -522,7 +522,7 @@ As permissões da seção 5 são garantidas **no RLS**, não só escondendo bot�
 
 ### Backup e auditoria
 
-- Backup diário do banco (plano do Supabase com backup automático ou `pg_dump` agendado) e **teste de restauração** antes do piloto.
+- Backup diário do banco (plano do Supabase com backup automático ou `pg_dump` agendado) e **teste de restauração** antes de cadastrar o primeiro dado real (ver [checklist antes do piloto](#checklist-antes-do-piloto)).
 - Trilha de alterações em `ordem_servico_eventos` (quem, quando, o quê).
 - Funcionamento offline, se houver, desenhado e testado explicitamente.
 
@@ -555,7 +555,7 @@ As permissões da seção 5 são garantidas **no RLS**, não só escondendo bot�
 
 ## 13. Etapas de desenvolvimento
 
-Cada etapa entrega algo testável. Ao fim da **etapa 5**, o MVP pode ir para o piloto.
+Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes do piloto](#checklist-antes-do-piloto) completo, o MVP pode ir para o piloto.
 
 | Etapa | Entrega |
 |---|---|
@@ -589,7 +589,20 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, o MVP pode ir para o p
 - [x] Configurar Supabase Auth: confirmação de e-mail, senha mínima e limite de tentativas (`supabase/config.toml`, aplicado com `supabase config push`; conferir a diferença antes, para não desligar o MFA da nuvem)
 - [x] `AuthProvider` (interface) + implementação Supabase + `authService`
 - [x] Telas de login e recuperação de senha usando só `authService`
-- [ ] Definir e testar backup e restauração do banco
+- [x] Primeiro acesso: empresa e usuário admin criados pelo painel do Supabase, login funcionando na nuvem
+
+> **Etapa 0 concluída.** O backup do banco saiu daqui e foi para o [checklist antes do piloto](#checklist-antes-do-piloto): enquanto só existem dados de teste, a estrutura do banco já está guardada no Git (migrations), e não há dado real a perder.
+
+### Checklist antes do piloto
+
+Itens que não travam o desenvolvimento, mas precisam estar prontos **antes de cadastrar o primeiro dado real** (o que vier primeiro: início do piloto ou uso de verdade com dados de clientes).
+
+- [ ] **Backup diário do banco** com `supabase db dump` agendado no GitHub Actions (grátis; cópias guardadas por 30 dias) ou plano Pro do Supabase (backup automático)
+- [ ] **Teste de restauração:** restaurar um backup num Supabase local (Docker) e conferir os dados
+- [ ] **E-mail próprio (SMTP)** no Supabase Auth: o servidor grátis do Supabase envia poucos e-mails por hora, o que não basta para confirmação de cadastro e recuperação de senha de vários usuários
+- [ ] **Publicar o app** (Vercel ou Netlify) e trocar no Supabase o `site_url` e os endereços de retorno de `localhost` para o endereço real
+- [ ] **Security Advisor** do painel do Supabase sem alertas
+- [ ] **Projeto ativo:** no plano grátis, o Supabase pausa o projeto após 7 dias sem uso; confirmar que isso não acontece durante o piloto (uso diário ou plano Pro)
 
 ---
 
