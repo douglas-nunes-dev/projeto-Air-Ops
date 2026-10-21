@@ -174,7 +174,7 @@ cancelada    → (final)
 | Cores | Azul da marca (`--primary`) e menu lateral azul-escuro | Definidas em `src/index.css` |
 
 **Escritório (desktop) — admin e gestor**
-- Menu lateral: Painel, Ordens, Agenda, Clientes, Equipamentos, Configurações
+- Menu lateral: Painel, Ordens, Agenda, Clientes, Equipamentos, Modo técnico (só para quem também é técnico), Configurações (em breve)
 - Rodapé do menu: saudação conforme a hora ("Bom dia", "Boa tarde", "Boa noite") com o primeiro nome de quem entrou, relógio e clima atual da cidade onde está o computador (se o navegador não informar a localização, usa Passos/MG)
 - Barra superior: busca, botão "Nova OS" e menu do usuário
 
@@ -246,6 +246,8 @@ Interfaces (data/repositories/) ← contratos: OrdemRepository, ClienteRepositor
 - Na migração para Node, a implementação `data/api/` faz a mesma conversão; as telas não mudam.
 
 ### Exemplo
+
+> Ilustrativo: mostra o caminho tela → service → interface → Supabase. O código real em `src/` segue a mesma ideia com mais detalhes (ex.: `listar(organizacaoId)`, `ErroDados`).
 
 ```ts
 // src/domain/ordem/tipos.ts
@@ -444,7 +446,7 @@ src/
     tabela/                  ✅ tabela com busca, ordenação e paginação
   hooks/                     ✅ useSessao, useOrganizacao, usePessoaLogada, useAgora (relógio),
                                 useLocalizacao, useFotosPendentes, useEnvioDeFotos
-  lib/                       ✅ utilitários genéricos (texto, datas, chaves do cache, redução de fotos)
+  lib/                       ✅ utilitários genéricos (texto, datas, chaves do cache, redução de fotos, ids)
   test/                      ✅ preparação e dados de exemplo dos testes de tela
 supabase/
   migrations/                ✅ SQL versionado
@@ -531,7 +533,7 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 | `clientes` | Quem a prestadora atende |
 | `locais_atendimento` | Endereços, unidades e setores do cliente |
 | `equipamentos` | Identificação, marca/modelo, capacidade, série, `periodicidade_dias`, `proxima_manutencao` |
-| `ordens_servico` | Cliente, local, problema, prioridade, status, técnico, horário agendado, `duracao_minutos`, `motivo_cancelamento`, `os_origem_id` (retorno) |
+| `ordens_servico` | Cliente, local, problema, prioridade, status, técnico, horário agendado, `duracao_minutos`, `motivo_cancelamento`; `os_origem_id` (retorno) chega na etapa 5 |
 | `ordem_servico_equipamentos` | Equipamentos atendidos na OS (uma preventiva pode cobrir vários) |
 | `ordem_servico_eventos` | Histórico de status, atribuições e alterações relevantes |
 | `ordem_servico_execucao` | Diagnóstico e materiais (texto livre) de cada OS |
@@ -539,7 +541,7 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 | `checklist_modelos` | Modelo por tipo de serviço em cada empresa (preventiva, corretiva, instalação) |
 | `checklist_respostas` | Itens **copiados** do modelo para cada OS e a resposta (OK, não conforme, não se aplica) |
 | `anexos` | **Caminho** das fotos no Storage (nunca a URL completa) |
-| `assinaturas` | Assinatura do cliente com nome, data e caminho da imagem |
+| `assinaturas` | Assinatura do cliente com nome, data e caminho da imagem (etapa 5) |
 
 **Relacionamentos principais**
 
@@ -564,7 +566,7 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 - **Histórico pelo banco:** abertura e edição de OS geram a linha em `ordem_servico_eventos` por gatilho, com quem fez e o que mudou. O app não grava no histórico diretamente.
 - **Mudança de status:** gravada só pela função `registrar_mudanca_status` (OS e histórico na mesma transação), que só a chave de serviço da Edge Function executa. Ela recebe o status esperado: se outra pessoa mudou a OS no meio do caminho, nada é gravado.
 - **Planejamento:** `duracao_minutos` (padrão 60) monta a agenda; OS `agendada` sempre tem técnico e horário, e OS `cancelada` sempre tem `motivo_cancelamento` (constraints).
-- **Execução (etapa 4):** só o técnico atribuído grava, e só com a OS em execução (fotos também pausada). Toda empresa nasce com modelos de checklist padrão (gatilho em `organizacoes`); `preparar_checklist` copia os itens do modelo para a OS, então mudar o modelo depois não altera OS antigas. Quem respondeu e quando vêm do banco. O **tempo trabalhado** é a soma dos trechos entre "iniciar/retomar" e "pausar" no histórico (`src/domain/ordem/execucao.ts`). Fotos: caminho fixo `empresa/OS/id.jpg` (constraint), id gerado no celular para o reenvio não duplicar.
+- **Execução (etapa 4):** só o técnico atribuído grava, e só com a OS em execução (fotos também pausada). Toda empresa nasce com modelos de checklist padrão (gatilho em `organizacoes`); `preparar_checklist` copia os itens do modelo para a OS, então mudar o modelo depois não altera OS antigas. Quem respondeu e quando vêm do banco. O **tempo trabalhado** é a soma dos trechos entre "iniciar/retomar" e "pausar" no histórico (`src/domain/ordem/execucao.ts`). Diagnóstico e materiais gravados pela função `salvar_anotacoes_execucao` (cria ou atualiza só esses dois campos, passando pelo RLS). Fotos: caminho fixo `empresa/OS/id.jpg` (constraint), id gerado no celular para o reenvio não duplicar.
 - CPF/CNPJ, telefone e CEP guardados **só com dígitos**; a pontuação é colocada na tela.
 
 ---
