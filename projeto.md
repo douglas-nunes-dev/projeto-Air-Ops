@@ -148,7 +148,7 @@ cancelada    → (final)
 | 1 | Login | Acesso e recuperação de senha |
 | 2 | Painel | OS abertas e atrasadas, agenda do dia e preventivas vencendo (listas simples) |
 | 3 | Clientes e locais | Busca, contatos, endereços e setores |
-| 4 | Equipamentos | Dados técnicos, local, periodicidade e linha do tempo de atendimentos |
+| 4 | Equipamentos | Dados técnicos, local, periodicidade e linha do tempo de atendimentos (também no cliente, com filtro por local) |
 | 5 | Ordens de serviço | Lista com filtros por status, técnico e data |
 | 6 | Abertura de OS | Formulário manual ou mensagem colada para a IA preencher |
 | 7 | Agenda | Visão diária e semanal por técnico |
@@ -402,6 +402,7 @@ src/
     auth/                    ✅ credenciais, nova senha, ErroAutenticacao
     organizacao/             ✅ papéis e regra "pode editar cadastros"
     cliente/                 ✅ cliente, local de atendimento, CPF/CNPJ
+    historico/               ✅ linha do tempo: data do atendimento, resumo (total, último, corretivas em 12 meses)
     equipamento/
       tipos.ts               ✅ tipos de equipamento, periodicidades
       preventiva.ts          ← cálculo da próxima manutenção (etapa 8)
@@ -426,11 +427,12 @@ src/
     execucaoService.ts       ✅ checklist, diagnóstico, materiais e atividades
     storageService.ts        ✅ fotos: fila no aparelho, envio, endereços temporários
     conclusaoService.ts      ✅ concluir (assinatura no Storage + Edge Function) e dados do relatório
+    historicoService.ts      ✅ histórico do equipamento e do cliente
     iaService.ts
   data/
     index.ts                 ✅ ÚNICO ponto que escolhe a implementação
     repositories/            ✅ interfaces (AuthProvider, Organizacao, Cliente, Local, Equipamento, Ordem,
-                                Execucao, StorageProvider, FilaFotos, Clima)
+                                Execucao, Historico, StorageProvider, FilaFotos, Clima)
     clima/                   ✅ clima atual e nome da cidade (Open-Meteo e BigDataCloud)
     fila/                    ✅ fila de fotos no IndexedDB (lib idb)
     supabase/                ✅ implementação atual (único lugar com Supabase)
@@ -446,6 +448,7 @@ src/
     ordem/                   ✅ etiquetas de status e prioridade
     execucao/                ✅ checklist, anotações, atividades, fotos, assinatura e resumo (editável ou só leitura)
     relatorio/               ✅ desenho do PDF (RelatorioPdf), geração sob demanda e botão compartilhar/baixar
+    historico/               ✅ linha do tempo do equipamento e do cliente (resumo + atendimentos)
     formulario/              ✅ campos ligados ao React Hook Form
     pagina/                  ✅ cabeçalho, busca, estados de carregando/erro
     tabela/                  ✅ tabela com busca, ordenação e paginação
@@ -573,6 +576,7 @@ Toda tabela de negócio tem `organizacao_id` (direta ou indiretamente), com **RL
 - **Planejamento:** `duracao_minutos` (padrão 60) monta a agenda; OS `agendada` sempre tem técnico e horário, e OS `cancelada` sempre tem `motivo_cancelamento` (constraints).
 - **Execução (etapa 4):** só o técnico atribuído grava, e só com a OS em execução (fotos também pausada). Toda empresa nasce com modelos de checklist padrão (gatilho em `organizacoes`); `preparar_checklist` copia os itens do modelo para a OS, então mudar o modelo depois não altera OS antigas. Quem respondeu e quando vêm do banco. O **tempo trabalhado** é a soma dos trechos entre "iniciar/retomar" e "pausar" no histórico (`src/domain/ordem/execucao.ts`). Diagnóstico e materiais gravados pela função `salvar_anotacoes_execucao` (cria ou atualiza só esses dois campos, passando pelo RLS). Fotos: caminho fixo `empresa/OS/id.jpg` (constraint), id gerado no celular para o reenvio não duplicar.
 - **Conclusão (etapa 5):** gravada só pela função `registrar_conclusao` (status `concluida`, assinatura e histórico na mesma transação), executada só pela chave de serviço da Edge Function; exige a OS ainda em execução. A assinatura tem imagem + nome **ou** motivo (constraint), a imagem precisa estar na pasta da própria OS, e ninguém altera assinatura pelo app.
+- **Histórico (etapa 6):** consultas `historico_do_equipamento` e `historico_do_cliente`, sobre a visão `privado.resumo_ordens` (fora da API): data, tipo, status, técnico, diagnóstico e contagens de fotos e não conformidades. No equipamento, qualquer membro ativo da empresa vê todos os atendimentos **em resumo** (decisão da etapa 6); no cliente, vale o RLS normal.
 - CPF/CNPJ, telefone e CEP guardados **só com dígitos**; a pontuação é colocada na tela.
 
 ---
@@ -603,6 +607,7 @@ As permissões da seção 5 são garantidas **no RLS**, não só escondendo bot�
 
 - Testes automatizados também para papéis: um técnico não lê OS de outro técnico nem altera cadastros.
 - Exceção consciente (aviso do Security Advisor): `preparar_checklist` é `SECURITY DEFINER` e pode ser chamada por usuários logados. É de propósito: ela confere primeiro se quem chama é o técnico da OS em execução e é o único caminho para criar os itens do checklist, sempre copiados do modelo (com `SECURITY INVOKER`, o app precisaria poder inserir itens à mão).
+- Exceção consciente (aviso do Security Advisor): `historico_do_equipamento` é `SECURITY DEFINER`. É de propósito (decisão da etapa 6): o técnico vê, **em resumo**, os atendimentos de outros técnicos no equipamento ("o que fizeram da última vez?"). A função confere antes que o equipamento é da empresa de quem pede e devolve só colunas de resumo; a OS dos outros, as fotos e a assinatura continuam fechadas pelo RLS (testado em `supabase/tests/historico.test.ts`).
 - Exceção consciente: o `gestor` **lê** a lista de vínculos da empresa (`organizacao_usuarios`), porque precisa escolher o técnico ao agendar uma OS. Ele não altera vínculos nem papéis.
 
 ### Operações sensíveis no servidor
@@ -680,8 +685,8 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes
 | 3. Planejamento | Agendamento, atribuição e agenda por técnico | ✅ Concluída |
 | 4. Execução | Tela do técnico: diagnóstico, checklist, tempo, fotos com fila | ✅ Concluída |
 | 5. Conclusão | Assinatura, revisão, encerramento e PDF | ✅ Concluída |
-| 6. Histórico | Linha do tempo por equipamento e por cliente | ⏳ Próxima |
-| 7. IA | Mensagem → rascunho de OS | |
+| 6. Histórico | Linha do tempo por equipamento e por cliente | ✅ Concluída |
+| 7. IA | Mensagem → rascunho de OS | ⏳ Próxima |
 | 8. Preventiva simples | Periodicidade e lista de vencimentos | |
 
 ### Checklist da etapa 0
@@ -787,6 +792,18 @@ Decisões: **o técnico conclui direto** (sem aprovação do gestor; serve ao au
 
 > **Etapa 5 concluída e testada no celular.** Com o teste no celular e o [checklist antes do piloto](#checklist-antes-do-piloto), o MVP pode ir para o piloto (seção 13).
 
+### Checklist da etapa 6
+
+Decisões: no **equipamento**, o técnico vê os atendimentos de **todos** os técnicos, **só em resumo** (sem abrir a OS, fotos nem assinatura dos outros); cada atendimento mostra **resumo com destaques** (data, OS, tipo, status, técnico, diagnóstico, não conformidades e fotos), com um resumo no topo (total, último concluído e corretivas nos últimos 12 meses, em destaque a partir de 3).
+
+- [x] Migration: visão `privado.resumo_ordens` (fora da API) e as funções `historico_do_equipamento` (security definer, confere a empresa) e `historico_do_cliente` (RLS normal)
+- [x] Testes do banco (`supabase/tests/historico.test.ts`): só OS do equipamento/cliente, resumo da execução, técnico vê o resumo do outro mas não abre a OS nem a assinatura, outra empresa e anônimo não veem, ordem da mais recente para a mais antiga
+- [x] Domínio (`src/domain/historico/`): data do atendimento, resumo do topo e quem pode abrir a OS a partir do histórico
+- [x] Telas: linha do tempo no detalhe do **equipamento** e do **cliente** (com filtro por local); OS de outro técnico aparece sem link; no celular, os equipamentos da OS levam ao histórico
+- [x] Aplicado na nuvem e conferido no banco real com o usuário do teste
+
+> **Etapa 6 concluída.** As fotos de um equipamento aparecem como contagem por atendimento; vê-las exige abrir a OS (quem pode abrir).
+
 ### Checklist antes do piloto
 
 Itens que não travam o desenvolvimento, mas precisam estar prontos **antes de cadastrar o primeiro dado real** (o que vier primeiro: início do piloto ou uso de verdade com dados de clientes).
@@ -795,7 +812,7 @@ Itens que não travam o desenvolvimento, mas precisam estar prontos **antes de c
 - [ ] **Teste de restauração:** restaurar um backup num Supabase local (Docker) e conferir os dados
 - [ ] **E-mail próprio (SMTP)** no Supabase Auth: o servidor grátis do Supabase envia poucos e-mails por hora, o que não basta para confirmação de cadastro e recuperação de senha de vários usuários
 - [ ] **Publicar o app** (Vercel ou Netlify) e trocar no Supabase o `site_url` e os endereços de retorno de `localhost` para o endereço real
-- [ ] **Security Advisor** do painel do Supabase sem alertas (hoje há dois: proteção contra senhas vazadas, recurso do plano Pro, e `preparar_checklist`, exceção consciente da seção 11; rodar `npx supabase db advisors --linked`)
+- [ ] **Security Advisor** do painel do Supabase sem alertas (hoje há três: proteção contra senhas vazadas, recurso do plano Pro, e `preparar_checklist` e `historico_do_equipamento`, exceções conscientes da seção 11; rodar `npx supabase db advisors --linked`)
 - [ ] **Projeto ativo:** no plano grátis, o Supabase pausa o projeto após 7 dias sem uso; confirmar que isso não acontece durante o piloto (uso diário ou plano Pro)
 
 ---

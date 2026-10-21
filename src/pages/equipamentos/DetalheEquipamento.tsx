@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, ArchiveRestore, ClipboardPlus, History, Pencil } from 'lucide-react';
+import { Archive, ArchiveRestore, ClipboardPlus, Pencil } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { toast } from 'sonner';
 import { CabecalhoPagina } from '@/components/pagina/CabecalhoPagina';
@@ -8,6 +8,7 @@ import { CarregandoLista, ErroConsulta } from '@/components/pagina/EstadosConsul
 import { InfoItem } from '@/components/pagina/InfoItem';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { HistoricoDoEquipamento } from '@/components/historico/LinhaDoTempo';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   formatarCapacidade,
@@ -181,11 +182,7 @@ export function DetalheEquipamento() {
               <CardTitle>Histórico de atendimentos</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <History className="size-5 shrink-0" aria-hidden />
-                As ordens de serviço deste equipamento aparecem aqui depois que o módulo de OS
-                estiver pronto.
-              </div>
+              <HistoricoDoEquipamento equipamentoId={equipamento.id} />
             </CardContent>
           </Card>
         </div>

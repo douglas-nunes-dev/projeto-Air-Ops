@@ -9,6 +9,7 @@ import { CarregandoLista, ErroConsulta } from '@/components/pagina/EstadosConsul
 import { InfoItem } from '@/components/pagina/InfoItem';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { HistoricoDoCliente } from '@/components/historico/LinhaDoTempo';
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatarDocumento } from '@/domain/cliente/documento';
 import {
@@ -141,6 +142,14 @@ export function DetalheCliente() {
         <div className="space-y-6 lg:col-span-2">
           <SecaoLocais cliente={cliente} />
           <SecaoEquipamentos cliente={cliente} />
+          <Card>
+            <CardHeader>
+              <CardTitle>Histórico de atendimentos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <HistoricoDoCliente clienteId={cliente.id} />
+            </CardContent>
+          </Card>
         </div>
       </div>
     </>

@@ -764,6 +764,44 @@ export type Database = {
         };
         Returns: undefined;
       };
+      historico_do_cliente: {
+        Args: { p_cliente_id: string };
+        Returns: {
+          agendada_para: string;
+          concluida_em: string;
+          criado_em: string;
+          diagnostico: string;
+          fotos: number;
+          local_nome: string;
+          nao_conformes: number;
+          numero: number;
+          ordem_id: string;
+          problema: string;
+          status: Database['public']['Enums']['status_ordem'];
+          tecnico_id: string;
+          tecnico_nome: string;
+          tipo_servico: Database['public']['Enums']['tipo_servico'];
+        }[];
+      };
+      historico_do_equipamento: {
+        Args: { p_equipamento_id: string };
+        Returns: {
+          agendada_para: string;
+          concluida_em: string;
+          criado_em: string;
+          diagnostico: string;
+          fotos: number;
+          local_nome: string;
+          nao_conformes: number;
+          numero: number;
+          ordem_id: string;
+          problema: string;
+          status: Database['public']['Enums']['status_ordem'];
+          tecnico_id: string;
+          tecnico_nome: string;
+          tipo_servico: Database['public']['Enums']['tipo_servico'];
+        }[];
+      };
       preparar_checklist: { Args: { p_ordem_id: string }; Returns: undefined };
       registrar_conclusao: {
         Args: {

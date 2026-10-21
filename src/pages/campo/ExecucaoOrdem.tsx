@@ -295,7 +295,15 @@ function CabecalhoOrdem({ ordem }: { ordem: Ordem }) {
           <p className="text-xs font-medium text-muted-foreground">Equipamentos</p>
           <ul className="text-sm">
             {ordem.equipamentos.map((equipamento) => (
-              <li key={equipamento.id}>{equipamento.identificacao}</li>
+              <li key={equipamento.id}>
+                {/* Leva ao equipamento, com o histórico de atendimentos (etapa 6). */}
+                <Link
+                  to={`/equipamentos/${equipamento.id}`}
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  {equipamento.identificacao}
+                </Link>
+              </li>
             ))}
           </ul>
         </div>
