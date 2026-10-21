@@ -1,6 +1,8 @@
 // ÚNICO lugar que escolhe a implementação de dados (regra 7 da seção 7).
 // Para migrar para a API Node, troque as classes abaixo pelas de ./api/.
+import { OpenMeteoClimaProvider } from './clima/OpenMeteoClimaProvider';
 import type { AuthProvider } from './repositories/AuthProvider';
+import type { ClimaProvider } from './repositories/ClimaProvider';
 import type { ClienteRepository } from './repositories/ClienteRepository';
 import type { EquipamentoRepository } from './repositories/EquipamentoRepository';
 import type { LocalRepository } from './repositories/LocalRepository';
@@ -19,3 +21,4 @@ export const clienteRepository: ClienteRepository = new SupabaseClienteRepositor
 export const localRepository: LocalRepository = new SupabaseLocalRepository();
 export const equipamentoRepository: EquipamentoRepository = new SupabaseEquipamentoRepository();
 export const ordemRepository: OrdemRepository = new SupabaseOrdemRepository();
+export const climaProvider: ClimaProvider = new OpenMeteoClimaProvider();

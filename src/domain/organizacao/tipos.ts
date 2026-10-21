@@ -12,6 +12,8 @@ export type OrganizacaoDoUsuario = {
   id: string;
   nome: string;
   papeis: Papel[];
+  /** Como a pessoa logada aparece no sistema (nome do perfil ou, se vazio, o e-mail). */
+  nomeUsuario: string;
 };
 
 // Mesma regra do RLS (seção 11). Aqui serve só para esconder botões;

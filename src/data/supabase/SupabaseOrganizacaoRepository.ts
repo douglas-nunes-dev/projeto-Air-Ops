@@ -16,7 +16,9 @@ export class SupabaseOrganizacaoRepository implements OrganizacaoRepository {
     const linhas = exigirDados(
       await supabase
         .from('organizacao_usuarios')
-        .select('papeis, organizacao:organizacoes!inner(id, nome)')
+        .select(
+          'papeis, organizacao:organizacoes!inner(id, nome), usuario:usuarios!inner(nome, email)',
+        )
         .eq('usuario_id', usuarioId)
         .eq('ativo', true)
         .order('criado_em'),
@@ -26,6 +28,7 @@ export class SupabaseOrganizacaoRepository implements OrganizacaoRepository {
       id: linha.organizacao.id,
       nome: linha.organizacao.nome,
       papeis: ordenarPapeis(linha.papeis),
+      nomeUsuario: nomeDaPessoa(linha.usuario) ?? linha.usuario.email,
     }));
   }
 

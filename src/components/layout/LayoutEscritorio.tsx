@@ -43,6 +43,7 @@ import { useSessao } from '@/hooks/useSessao';
 import { mensagemDeErro } from '@/lib/erros';
 import { sair } from '@/services/authService';
 import { BuscaGeral } from './BuscaGeral';
+import { RodapeMenu } from './RodapeMenu';
 
 type ItemMenu = {
   rotulo: string;
@@ -117,6 +118,7 @@ function MenuLateral() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <RodapeMenu />
     </Sidebar>
   );
 }

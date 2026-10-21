@@ -18,6 +18,7 @@ export const organizacaoDeTeste: OrganizacaoDoUsuario = {
   id: '11111111-1111-4111-8111-111111111111',
   nome: 'Refrigeração Teste',
   papeis: ['admin'],
+  nomeUsuario: 'Douglas',
 };
 
 type Opcoes = {

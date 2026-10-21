@@ -175,6 +175,7 @@ cancelada    → (final)
 
 **Escritório (desktop) — admin e gestor**
 - Menu lateral: Painel, Ordens, Agenda, Clientes, Equipamentos, Configurações
+- Rodapé do menu: saudação conforme a hora ("Bom dia", "Boa tarde", "Boa noite") com o primeiro nome de quem entrou, relógio e clima atual da cidade onde está o computador (se o navegador não informar a localização, usa Passos/MG)
 - Barra superior: busca, botão "Nova OS" e menu do usuário
 
 **Técnico (celular)**
@@ -377,6 +378,7 @@ Configurar o ESLint para bloquear importações do Supabase fora da pasta permit
 | Fila de fotos | IndexedDB (lib `idb`) | Guarda e reenvia quando o sinal voltar |
 | Testes | Vitest + Testing Library + PGlite | Unitários e telas (projeto `app`); migrations e RLS num Postgres em memória (projeto `banco`, em `supabase/tests/`) |
 | Qualidade | ESLint + Prettier + Husky/lint-staged | Verificação automática antes de cada commit |
+| Clima (rodapé do menu) | Open-Meteo (clima atual) + BigDataCloud (nome da cidade) | Gratuitos, sem chave; chamados do navegador via `data/clima/` (interface `ClimaProvider`) |
 | Hospedagem | Vercel ou Netlify + Supabase (região São Paulo) + GitHub | Dados no Brasil ajudam na LGPD |
 
 **Para depois do MVP:** cobrança recorrente (Asaas ou Mercado Pago), WhatsApp (API oficial da Meta ou provedor como Z-API), app nativo (React Native + Expo).
@@ -394,6 +396,8 @@ src/
   domain/                    ← TS puro: tipos, schemas Zod e regras de negócio
     erros.ts                 ✅ ErroDados (falhas de leitura e gravação)
     comum/campos.ts          ✅ validações reaproveitadas (texto, telefone, CEP, data)
+    comum/saudacao.ts        ✅ "Bom dia", "Boa tarde" ou "Boa noite" conforme a hora
+    clima/                   ✅ códigos de tempo, local padrão (Passos/MG), arredondar coordenadas
     auth/                    ✅ credenciais, nova senha, ErroAutenticacao
     organizacao/             ✅ papéis e regra "pode editar cadastros"
     cliente/                 ✅ cliente, local de atendimento, CPF/CNPJ
@@ -417,7 +421,8 @@ src/
     iaService.ts
   data/
     index.ts                 ✅ ÚNICO ponto que escolhe a implementação
-    repositories/            ✅ interfaces (AuthProvider, Organizacao, Cliente, Local, Equipamento, Ordem)
+    repositories/            ✅ interfaces (AuthProvider, Organizacao, Cliente, Local, Equipamento, Ordem, Clima)
+    clima/                   ✅ clima atual e nome da cidade (Open-Meteo e BigDataCloud)
     supabase/                ✅ implementação atual (único lugar com Supabase)
       client.ts              ✅ cliente criado no primeiro uso
       tipos-banco.ts         ✅ gerado com `npm run db:tipos` (não editar à mão)
@@ -427,12 +432,12 @@ src/
   pages/                     ✅ auth/, clientes/, equipamentos/, ordens/
   components/
     ui/                      ✅ shadcn (só visual)
-    layout/                  ✅ menu lateral, busca geral, empresa do usuário
+    layout/                  ✅ menu lateral (com rodapé de saudação e clima), busca geral, empresa do usuário
     ordem/                   ✅ etiquetas de status e prioridade
     formulario/              ✅ campos ligados ao React Hook Form
     pagina/                  ✅ cabeçalho, busca, estados de carregando/erro
     tabela/                  ✅ tabela com busca, ordenação e paginação
-  hooks/                     ✅ useSessao, useOrganizacao
+  hooks/                     ✅ useSessao, useOrganizacao, useAgora (relógio), useLocalizacao
   lib/                       ✅ utilitários genéricos (texto, datas, chaves do cache)
   test/                      ✅ preparação e dados de exemplo dos testes de tela
 supabase/
@@ -467,6 +472,22 @@ Todo o TypeScript do app fica em `src/`. A única exceção são os testes do ba
 - **`.tsx`**: TypeScript com tela (JSX, o HTML escrito dentro do código). Usado em telas e componentes.
 - **`.ts`**: TypeScript só com lógica, sem tela. Usado em `domain`, `services`, `data` e `lib`.
 - **`.test.ts` / `.test.tsx`**: testes, guardados ao lado do arquivo que testam.
+
+### Como rodar e ver o app
+
+| Para quê | Comando | Onde abrir |
+|---|---|---|
+| Desenvolver (a tela se atualiza ao salvar) | `npm run dev` | `http://localhost:5173` |
+| Ver a versão final e instalar como app (PWA) | `npm run build` e depois `npm run preview` | `http://localhost:4173` no Chrome ou Edge → ícone de instalar na barra de endereço |
+| Rodar os testes | `npm test` (tudo) ou `npm run test:banco` (só banco) | Terminal |
+
+**Ver dentro do VS Code**
+
+- **Simple Browser** (já vem no VS Code): `Ctrl + Shift + P` → "Simple Browser: Show" → `http://localhost:5173`. Não simula celular.
+- **Microsoft Edge Tools for VS Code** (extensão): abre o app numa aba com as ferramentas de desenvolvedor e simula celular e tablet (botão de simular aparelho na barra da aba). Bom para testar a tela do técnico.
+- Fora do VS Code: no Chrome ou Edge, `F12` e depois `Ctrl + Shift + M` mostram a página no tamanho de um celular.
+
+Para parar o app no terminal: `Ctrl + C`.
 
 ---
 
@@ -583,6 +604,7 @@ As permissões da seção 5 são garantidas **no RLS**, não só escondendo bot�
 - **Ambiente hospitalar:** fotografar apenas equipamentos e instalações, nunca pacientes, prontuários, telas ou documentos. Dados do contratante são confidenciais.
 - Termos de uso e política de privacidade antes do primeiro cliente pagante.
 - Informar que mensagens coladas para a IA são enviadas a um serviço externo (Claude API); orientar a não colar dados pessoais desnecessários.
+- **Clima do rodapé:** a localização só é usada com permissão do navegador, é arredondada para cerca de 1 km antes de sair do computador e vai apenas para os serviços de clima e de nome da cidade (Open-Meteo e BigDataCloud). Nada disso é gravado no banco.
 - Exportar e excluir todos os dados de uma organização quando ela encerrar a conta.
 
 ### Repositório e dependências
@@ -670,6 +692,8 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes
 - [x] OS de exemplo no `supabase/seed.sql` (só nos clientes de exemplo)
 
 > **Etapa 2 concluída.** Campos obrigatórios da OS decididos: cliente, local, tipo de serviço, prioridade e problema relatado; equipamentos e solicitante são opcionais. Cancelar, agendar e atribuir técnico são mudanças de status e chegam na etapa 3, pela Edge Function da seção 11. O filtro por técnico já existe, mas só faz diferença depois que a etapa 3 permitir atribuir técnicos. O vínculo de retorno (`os_origem_id`) fica para quando houver OS concluídas (etapa 5).
+
+> **Extra depois da etapa 2:** rodapé do menu lateral com saudação, primeiro nome, relógio e clima da cidade onde está o computador (seções 6 e 11).
 
 ### Checklist antes do piloto
 
