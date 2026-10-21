@@ -20,7 +20,11 @@ describe('chamarFuncao', () => {
   it('envia o corpo para a Edge Function', async () => {
     invocar.mockResolvedValue({ data: { ok: true }, error: null });
     await chamarFuncao('alterar-status-ordem', { acao: 'cancelar' });
-    expect(invocar).toHaveBeenCalledWith('alterar-status-ordem', { body: { acao: 'cancelar' } });
+    expect(invocar).toHaveBeenCalledWith('alterar-status-ordem', {
+      body: { acao: 'cancelar' },
+      // Sem limite, um sinal que cai no meio deixaria o botão em "Aguarde…" para sempre.
+      timeout: 20_000,
+    });
   });
 
   it('a recusa do servidor vira ErroDados com a mensagem e o campo dele', async () => {

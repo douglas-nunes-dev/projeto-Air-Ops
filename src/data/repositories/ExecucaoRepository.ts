@@ -26,11 +26,8 @@ export interface ExecucaoRepository {
     resposta: RespostaChecklist | null,
     observacao: string | null,
   ): Promise<void>;
-  salvarAnotacoes(
-    ordemId: string,
-    organizacaoId: string,
-    anotacoes: AnotacoesExecucao,
-  ): Promise<void>;
+  /** Cria as anotações na primeira vez e atualiza nas seguintes. */
+  salvarAnotacoes(ordemId: string, anotacoes: AnotacoesExecucao): Promise<void>;
   adicionarAtividade(ordemId: string, organizacaoId: string, descricao: string): Promise<void>;
   removerAtividade(id: string): Promise<void>;
   /** Registra a foto já enviada ao Storage. Repetir com o mesmo id não duplica. */

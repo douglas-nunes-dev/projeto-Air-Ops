@@ -70,17 +70,16 @@ export class SupabaseExecucaoRepository implements ExecucaoRepository {
     if (alteradas.length === 0) throw FORA_DA_EXECUCAO;
   }
 
-  async salvarAnotacoes(
-    ordemId: string,
-    organizacaoId: string,
-    anotacoes: AnotacoesExecucao,
-  ): Promise<void> {
-    exigirDados(
-      await obterClienteSupabase()
-        .from('ordem_servico_execucao')
-        .upsert({ ordem_id: ordemId, organizacao_id: organizacaoId, ...anotacoes })
-        .select('ordem_id'),
-    );
+  async salvarAnotacoes(ordemId: string, anotacoes: AnotacoesExecucao): Promise<void> {
+    // Função do banco em vez de upsert: o upsert tentaria alterar também as colunas de chave,
+    // que o app não tem permissão de alterar (migration 20261022130000).
+    const { error } = await obterClienteSupabase().rpc('salvar_anotacoes_execucao', {
+      p_ordem_id: ordemId,
+      // O gerador de tipos não marca parâmetros de função como opcionais; a função aceita null.
+      p_diagnostico: anotacoes.diagnostico as string,
+      p_materiais: anotacoes.materiais as string,
+    });
+    if (error) throw converterErroBanco(error);
   }
 
   async adicionarAtividade(ordemId: string, organizacaoId: string, descricao: string) {

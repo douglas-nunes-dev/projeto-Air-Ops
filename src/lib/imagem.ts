@@ -18,7 +18,10 @@ export function dimensoesReduzidas(
 
 /** Converte para JPEG reduzido, já na orientação certa (fotos de celular vêm "deitadas"). */
 export async function reduzirFoto(arquivo: Blob): Promise<Blob> {
-  const imagem = await createImageBitmap(arquivo, { imageOrientation: 'from-image' });
+  // Safari antigo não aceita a opção de orientação; sem ela, a maioria já aplica sozinho.
+  const imagem = await createImageBitmap(arquivo, { imageOrientation: 'from-image' }).catch(() =>
+    createImageBitmap(arquivo),
+  );
   const { largura, altura } = dimensoesReduzidas(imagem.width, imagem.height);
 
   const tela = document.createElement('canvas');

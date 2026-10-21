@@ -36,6 +36,11 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
     },
   },
+  server: {
+    // Testar no celular por um túnel temporário (npm run tunel): o Vite recusa endereços
+    // desconhecidos, então este domínio precisa estar liberado.
+    allowedHosts: ['.trycloudflare.com'],
+  },
   test: {
     projects: [
       {

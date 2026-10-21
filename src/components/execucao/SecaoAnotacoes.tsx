@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Textarea } from '@/components/ui/textarea';
 import type { AnotacoesExecucao } from '@/domain/ordem/execucao';
@@ -24,6 +25,8 @@ export function SecaoAnotacoes({ ordem, anotacoes, editavel }: Props) {
   const salvar = useMutation({
     mutationFn: () => salvarAnotacoes(ordem, { diagnostico, materiais }),
     onSuccess: () => cache.invalidateQueries({ queryKey: chaves.execucao(ordem.id) }),
+    // Além do texto embaixo do campo, um aviso que não passa despercebido.
+    onError: (erro) => toast.error(`Anotações não salvas: ${mensagemDeErro(erro)}`),
   });
 
   function salvarSeMudou() {

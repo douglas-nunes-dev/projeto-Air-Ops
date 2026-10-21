@@ -87,7 +87,9 @@ export function ChecklistExecucao({ ordemId, itens, editavel }: Props) {
                         posicao: item.posicao,
                         // Tocar de novo na mesma resposta limpa o item.
                         resposta: marcada ? null : resposta,
-                        obs: item.observacao ?? '',
+                        // A observação só existe para "não conforme": trocar de resposta a apaga,
+                        // senão ela ficaria escondida para o técnico e visível no relatório.
+                        obs: !marcada && resposta === 'nao_conforme' ? (item.observacao ?? '') : '',
                       })
                     }
                   >

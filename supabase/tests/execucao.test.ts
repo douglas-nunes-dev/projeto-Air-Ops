@@ -251,6 +251,53 @@ describe('anotações e atividades', () => {
     expect(atividades.linhas).toEqual([{ descricao: 'Troca do capacitor', criado_por: tecnicoA }]);
   });
 
+  it('salvar_anotacoes_execucao: cria na primeira vez e atualiza depois (como o app faz)', async () => {
+    const SALVAR = 'select salvar_anotacoes_execucao($1, $2, $3)';
+    await iniciar(ordemId);
+
+    const primeira = await consultarComo(banco, tecnicoA, SALVAR, [ordemId, 'Capacitor', null]);
+    expect(primeira.erro).toBeNull();
+    const segunda = await consultarComo(banco, tecnicoA, SALVAR, [
+      ordemId,
+      'Capacitor queimado',
+      '1 capacitor 35µF',
+    ]);
+    expect(segunda.erro).toBeNull();
+
+    const linhas = await banco.query<Record<string, unknown>>(
+      'select organizacao_id, diagnostico, materiais from ordem_servico_execucao',
+    );
+    expect(linhas.rows).toEqual([
+      {
+        organizacao_id: empresaA,
+        diagnostico: 'Capacitor queimado',
+        materiais: '1 capacitor 35µF',
+      },
+    ]);
+
+    for (const usuario of [gestorA, outroTecnicoA, adminB]) {
+      const recusa = await consultarComo(banco, usuario, SALVAR, [ordemId, 'x', null]);
+      expect(recusa.erro, usuario).toMatch(/row-level security|OS não encontrada/);
+    }
+    await mudarStatus(ordemId, 'em_execucao', 'pausada');
+    const pausada = await consultarComo(banco, tecnicoA, SALVAR, [ordemId, 'x', null]);
+    expect(pausada.erro).toMatch(/row-level security/);
+  });
+
+  it('o "upsert" direto pela tabela (jeito antigo do app) é recusado', async () => {
+    await iniciar(ordemId);
+    await consultarComo(banco, tecnicoA, SALVAR_ANOTACOES, [ordemId, empresaA]);
+    const upsert = await consultarComo(
+      banco,
+      tecnicoA,
+      `insert into ordem_servico_execucao (ordem_id, organizacao_id, diagnostico) values ($1, $2, 'y')
+       on conflict (ordem_id) do update set ordem_id = excluded.ordem_id,
+         organizacao_id = excluded.organizacao_id, diagnostico = excluded.diagnostico`,
+      [ordemId, empresaA],
+    );
+    expect(upsert.erro).toMatch(/permission denied/);
+  });
+
   it('gestor, outro técnico e outra empresa não gravam nem enxergam', async () => {
     await iniciar(ordemId);
     for (const usuario of [gestorA, adminA, outroTecnicoA, adminB]) {

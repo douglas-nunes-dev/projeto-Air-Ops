@@ -122,8 +122,15 @@ async function converterErroFuncao(erro: unknown): Promise<ErroDados> {
   return new ErroDados('desconhecido', { cause: erro });
 }
 
+// Em campo o sinal cai no meio do pedido: sem limite, o botão ficaria em "Aguarde…" para sempre.
+// Estourado o tempo, vira "sem conexão" (FunctionsFetchError).
+export const TEMPO_LIMITE_FUNCAO_MS = 20_000;
+
 /** Chama uma Edge Function e converte a recusa dela em ErroDados, com a mensagem do servidor. */
 export async function chamarFuncao(nome: string, corpo: Record<string, unknown>): Promise<void> {
-  const { error } = await obterClienteSupabase().functions.invoke(nome, { body: corpo });
+  const { error } = await obterClienteSupabase().functions.invoke(nome, {
+    body: corpo,
+    timeout: TEMPO_LIMITE_FUNCAO_MS,
+  });
   if (error) throw await converterErroFuncao(error);
 }

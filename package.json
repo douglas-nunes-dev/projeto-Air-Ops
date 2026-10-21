@@ -18,7 +18,8 @@
     "test:banco": "vitest run --project banco",
     "typecheck": "tsc -b",
     "prepare": "husky",
-    "db:tipos": "supabase gen types typescript --linked --schema public > src/data/supabase/tipos-banco.ts && prettier --write src/data/supabase/tipos-banco.ts"
+    "db:tipos": "supabase gen types typescript --linked --schema public > src/data/supabase/tipos-banco.ts && prettier --write src/data/supabase/tipos-banco.ts",
+    "tunel": "cloudflared tunnel --url http://localhost:5173"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
@@ -60,6 +61,7 @@
     "@types/react-dom": "^19.2.7",
     "@types/react-signature-canvas": "^1.0.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "cloudflared": "^0.7.3",
     "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -85,5 +87,8 @@
     "*.{js,json,css}": [
       "prettier --write"
     ]
+  },
+  "allowScripts": {
+    "cloudflared@0.7.3": true
   }
 }

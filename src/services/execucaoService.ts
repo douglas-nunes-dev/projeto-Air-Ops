@@ -35,14 +35,10 @@ export async function responderItemChecklist(
 }
 
 export async function salvarAnotacoes(
-  ordem: Pick<Ordem, 'id' | 'organizacaoId'>,
+  ordem: Pick<Ordem, 'id'>,
   formulario: AnotacoesFormulario,
 ): Promise<void> {
-  await execucaoRepository.salvarAnotacoes(
-    ordem.id,
-    ordem.organizacaoId,
-    AnotacoesFormularioSchema.parse(formulario),
-  );
+  await execucaoRepository.salvarAnotacoes(ordem.id, AnotacoesFormularioSchema.parse(formulario));
 }
 
 export async function adicionarAtividade(

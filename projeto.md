@@ -487,6 +487,7 @@ Todo o TypeScript do app fica em `src/`. A única exceção são os testes do ba
 |---|---|---|
 | Desenvolver (a tela se atualiza ao salvar) | `npm run dev` | `http://localhost:5173` |
 | Ver a versão final e instalar como app (PWA) | `npm run build` e depois `npm run preview` | `http://localhost:4173` no Chrome ou Edge → ícone de instalar na barra de endereço |
+| Testar no celular de qualquer rede (túnel HTTPS temporário da Cloudflare) | `npm run dev` num terminal e `npm run tunel` em outro | Endereço `https://….trycloudflare.com` que aparece no terminal (muda a cada vez; para quando fecha o comando) |
 | Rodar os testes | `npm test` (tudo) ou `npm run test:banco` (só banco) | Terminal |
 | Publicar uma Edge Function na nuvem | `npx supabase functions deploy <nome> --use-api` (sem Docker) | Terminal |
 
@@ -756,6 +757,7 @@ Decisões: **modelos de checklist prontos** por tipo de serviço; **tempo autom�
 - [x] Entrada: quem é só técnico abre no modo técnico; modo autônomo abre nele no celular e no escritório no computador; item "Modo técnico" no menu
 - [x] Escritório: detalhe da OS mostra a execução (tempo, checklist, anotações, atividades, fotos) só para leitura e o atalho "Executar" para o técnico da OS
 - [x] **Aplicado na nuvem:** `npx supabase db push`, `npx supabase functions deploy alterar-status-ordem --use-api` e `npm run db:tipos`; sem login, a função responde 401
+- [x] **Revisão após o primeiro teste no celular (iPhone/Safari, pelo túnel):** diagnóstico e materiais não salvavam (o upsert exigia permissão nas colunas de chave) — corrigido com a função `salvar_anotacoes_execucao` (migration `20261022130000`) e aviso em destaque quando um salvamento falha; observação do checklist apagada ao trocar de "não conforme" para outra resposta; id das fotos gerado também fora de HTTPS; leitura da foto em Safari antigo; mensagem clara quando o aparelho não consegue guardar a foto; chamadas à Edge Function com limite de 20 s (sem sinal, "Sem conexão" em vez de "Aguarde…" para sempre)
 - [ ] **Teste no app de verdade, no celular:** iniciar uma OS como técnico, responder o checklist, tirar foto sem sinal (modo avião) e ver a foto subir quando o sinal voltar, pausar e retomar
 
 > **Etapa 4 concluída no código.** A edição dos modelos de checklist pela empresa fica para a tela de Configurações. Concluir a OS (assinatura, revisão e PDF) é a etapa 5.

@@ -735,6 +735,10 @@ export type Database = {
         };
         Returns: undefined;
       };
+      salvar_anotacoes_execucao: {
+        Args: { p_diagnostico: string; p_materiais: string; p_ordem_id: string };
+        Returns: undefined;
+      };
     };
     Enums: {
       papel_usuario: 'admin' | 'gestor' | 'tecnico';

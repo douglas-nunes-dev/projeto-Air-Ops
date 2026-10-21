@@ -8,6 +8,7 @@ import {
   type FotoPendente,
 } from '@/domain/ordem/execucao';
 import type { Ordem } from '@/domain/ordem/tipos';
+import { gerarId } from '@/lib/identificador';
 import { reduzirFoto } from '@/lib/imagem';
 
 // Fotos da execução (seção 11, "Arquivos" e "fila de fotos"). Toda foto passa pela fila do
@@ -50,15 +51,23 @@ export async function adicionarFoto(
     throw new ErroDados('dados_invalidos', { mensagem: 'A foto é grande demais para enviar.' });
   }
 
-  await filaFotos.guardar({
-    id: crypto.randomUUID(),
-    organizacaoId: ordem.organizacaoId,
-    ordemId: ordem.id,
-    arquivo: reduzida,
-    legenda: LegendaFotoSchema.parse(legenda),
-    tiradaEm: new Date().toISOString(),
-    erro: null,
-  });
+  try {
+    await filaFotos.guardar({
+      id: gerarId(),
+      organizacaoId: ordem.organizacaoId,
+      ordemId: ordem.id,
+      arquivo: reduzida,
+      legenda: LegendaFotoSchema.parse(legenda),
+      tiradaEm: new Date().toISOString(),
+      erro: null,
+    });
+  } catch (erro) {
+    // Ex.: navegação anônima ou aparelho sem espaço.
+    throw new ErroDados('desconhecido', {
+      mensagem: 'Não foi possível guardar a foto neste aparelho. Confira o espaço livre.',
+      cause: erro,
+    });
+  }
   avisarMudanca();
   // Não espera: o técnico segue trabalhando enquanto a foto sobe.
   void enviarFotosPendentes();

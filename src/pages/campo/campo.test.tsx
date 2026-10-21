@@ -5,10 +5,13 @@ import type { Execucao } from '@/domain/ordem/execucao';
 import type { Ordem } from '@/domain/ordem/tipos';
 import { abreNoModoTecnico, type OrganizacaoDoUsuario } from '@/domain/organizacao/tipos';
 import { listarLocaisDoCliente } from '@/services/clienteService';
+import { ErroDados } from '@/domain/erros';
 import {
+  adicionarAtividade,
   buscarExecucao,
   prepararChecklist,
   responderItemChecklist,
+  salvarAnotacoes,
 } from '@/services/execucaoService';
 import {
   buscarOrdem,
@@ -174,6 +177,75 @@ describe('Execução da OS', () => {
 
     await screen.findByText('Checklist');
     await vi.waitFor(() => expect(prepararChecklist).toHaveBeenCalledWith(emExecucao.id));
+  });
+});
+
+describe('Registro durante a execução', () => {
+  it('diagnóstico e materiais salvam sozinhos ao sair do campo', async () => {
+    vi.mocked(salvarAnotacoes).mockResolvedValue();
+    const usuario = userEvent.setup();
+    abrirExecucao(emExecucao);
+
+    await usuario.type(await screen.findByLabelText('Diagnóstico'), 'Capacitor queimado');
+    await usuario.type(screen.getByLabelText('Materiais utilizados'), '1 capacitor');
+    await usuario.click(screen.getByText('Fotos'));
+
+    await vi.waitFor(() =>
+      expect(salvarAnotacoes).toHaveBeenLastCalledWith(emExecucao, {
+        diagnostico: 'Capacitor queimado',
+        materiais: '1 capacitor',
+      }),
+    );
+    expect(await screen.findByText('Salvo.')).toBeInTheDocument();
+  });
+
+  it('se o salvamento falhar, avisa em destaque (não só embaixo do campo)', async () => {
+    vi.mocked(salvarAnotacoes).mockRejectedValue(new ErroDados('sem_permissao'));
+    const usuario = userEvent.setup();
+    abrirExecucao(emExecucao);
+
+    await usuario.type(await screen.findByLabelText('Diagnóstico'), 'Teste');
+    await usuario.click(screen.getByText('Fotos'));
+
+    expect(
+      await screen.findByText('Anotações não salvas: Você não tem permissão para fazer isso.'),
+    ).toBeInTheDocument();
+  });
+
+  it('adiciona uma atividade', async () => {
+    vi.mocked(adicionarAtividade).mockResolvedValue();
+    const usuario = userEvent.setup();
+    abrirExecucao(emExecucao);
+
+    await usuario.type(await screen.findByLabelText('Nova atividade'), 'Troca do capacitor');
+    await usuario.click(screen.getByRole('button', { name: 'Adicionar' }));
+
+    expect(adicionarAtividade).toHaveBeenCalledWith(emExecucao, {
+      descricao: 'Troca do capacitor',
+    });
+    await vi.waitFor(() => expect(screen.getByLabelText('Nova atividade')).toHaveValue(''));
+  });
+
+  it('trocar "não conforme" por outra resposta apaga a observação', async () => {
+    vi.mocked(responderItemChecklist).mockResolvedValue();
+    vi.mocked(buscarExecucao).mockResolvedValue({
+      ...execucaoComChecklist,
+      checklist: [
+        {
+          posicao: 1,
+          item: 'Dreno desobstruído',
+          resposta: 'nao_conforme',
+          observacao: 'Dreno entupido',
+        },
+      ],
+    });
+    const usuario = userEvent.setup();
+    abrirExecucao(emExecucao);
+
+    const grupo = await screen.findByRole('group', { name: 'Resposta: Dreno desobstruído' });
+    await usuario.click(within(grupo).getByRole('button', { name: 'OK' }));
+
+    expect(responderItemChecklist).toHaveBeenCalledWith(emExecucao.id, 1, 'ok', '');
   });
 });
 
