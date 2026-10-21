@@ -3,20 +3,20 @@ import { Controller, type Control, type FieldValues, type Path } from 'react-hoo
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 
-type CampoTextoProps<T extends FieldValues> = {
-  control: Control<T>;
+type CampoTextoProps<T extends FieldValues, TSaida> = {
+  control: Control<T, unknown, TSaida>;
   name: Path<T>;
   rotulo: string;
   descricao?: string;
 } & Omit<ComponentProps<typeof Input>, 'name' | 'id'>;
 
-export function CampoTexto<T extends FieldValues>({
+export function CampoTexto<T extends FieldValues, TSaida = T>({
   control,
   name,
   rotulo,
   descricao,
   ...propsInput
-}: CampoTextoProps<T>) {
+}: CampoTextoProps<T, TSaida>) {
   return (
     <Controller
       control={control}

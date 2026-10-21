@@ -593,6 +593,17 @@ Cada etapa entrega algo testável. Ao fim da **etapa 5**, com o [checklist antes
 
 > **Etapa 0 concluída.** O backup do banco saiu daqui e foi para o [checklist antes do piloto](#checklist-antes-do-piloto): enquanto só existem dados de teste, a estrutura do banco já está guardada no Git (migrations), e não há dado real a perder.
 
+### Checklist da etapa 1
+
+- [x] Migration com `clientes`, `locais_atendimento` e `equipamentos`; chaves compostas `(id, organizacao_id)` impedem ligar cadastros de empresas diferentes
+- [x] RLS: todos os membros leem; admin e gestor cadastram e alteram; técnico só consulta; ninguém apaga (arquivar = `ativo = false`)
+- [x] Testes de acesso cruzado e de regras de dados (`supabase/tests/cadastros.test.ts`)
+- [x] Validação de CPF/CNPJ pelos dígitos verificadores, telefone, CEP e UF (`src/domain/`)
+- [x] Repositórios, `clienteService` e `equipamentoService`; tipos do banco gerados com `npm run db:tipos`
+- [x] Layout do escritório (menu lateral, que vira menu deslizante no celular) e cores da marca
+- [x] Telas: lista, cadastro, edição e detalhe de clientes (com locais) e de equipamentos; busca sem acentos, ordenação e paginação (TanStack Table v9)
+- [x] Dados de exemplo fictícios (`supabase/seed.sql`), aplicados na nuvem com `npx supabase db query --linked -f supabase/seed.sql`
+
 ### Checklist antes do piloto
 
 Itens que não travam o desenvolvimento, mas precisam estar prontos **antes de cadastrar o primeiro dado real** (o que vier primeiro: início do piloto ou uso de verdade com dados de clientes).
@@ -601,7 +612,7 @@ Itens que não travam o desenvolvimento, mas precisam estar prontos **antes de c
 - [ ] **Teste de restauração:** restaurar um backup num Supabase local (Docker) e conferir os dados
 - [ ] **E-mail próprio (SMTP)** no Supabase Auth: o servidor grátis do Supabase envia poucos e-mails por hora, o que não basta para confirmação de cadastro e recuperação de senha de vários usuários
 - [ ] **Publicar o app** (Vercel ou Netlify) e trocar no Supabase o `site_url` e os endereços de retorno de `localhost` para o endereço real
-- [ ] **Security Advisor** do painel do Supabase sem alertas
+- [ ] **Security Advisor** do painel do Supabase sem alertas (hoje há um: proteção contra senhas vazadas, recurso do plano Pro; rodar `npx supabase db advisors --linked`)
 - [ ] **Projeto ativo:** no plano grátis, o Supabase pausa o projeto após 7 dias sem uso; confirmar que isso não acontece durante o piloto (uso diário ou plano Pro)
 
 ---

@@ -1,63 +1,25 @@
 import type { PGlite } from '@electric-sql/pglite';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { consultarComo, criarBancoDeTeste, type ResultadoConsulta } from './bancoDeTeste.ts';
+import { consultarComo, criarBancoDeTeste } from './bancoDeTeste.ts';
+
+import {
+  adminA,
+  adminB,
+  desativadoA,
+  empresaA,
+  empresaB,
+  gestorA,
+  nomes,
+  prepararEmpresasEPessoas,
+  tecnicoA,
+} from './cenario.ts';
 
 // Testes de acesso cruzado (seção 11): entre empresas e entre papéis.
-const empresaA = 'aaaaaaaa-0000-4000-8000-000000000000';
-const empresaB = 'bbbbbbbb-0000-4000-8000-000000000000';
-
-const adminA = '00000000-0000-4000-8000-000000000001';
-const gestorA = '00000000-0000-4000-8000-000000000002';
-const tecnicoA = '00000000-0000-4000-8000-000000000003';
-const desativadoA = '00000000-0000-4000-8000-000000000004';
-const adminB = '00000000-0000-4000-8000-000000000005';
-
 let banco: PGlite;
-
-async function prepararDados(): Promise<void> {
-  const pessoas: [string, string][] = [
-    [adminA, 'Admin A'],
-    [gestorA, 'Gestor A'],
-    [tecnicoA, 'Técnico A'],
-    [desativadoA, 'Desativado A'],
-    [adminB, 'Admin B'],
-  ];
-  for (const [id, nome] of pessoas) {
-    await banco.query(
-      'insert into auth.users (id, email, raw_user_meta_data) values ($1, $2, $3)',
-      [id, `${id}@teste.com`, { nome }],
-    );
-  }
-
-  await banco.query('insert into organizacoes (id, nome) values ($1, $2), ($3, $4)', [
-    empresaA,
-    'Empresa A',
-    empresaB,
-    'Empresa B',
-  ]);
-
-  const vinculos: [string, string, string, boolean][] = [
-    [empresaA, adminA, '{admin}', true],
-    [empresaA, gestorA, '{gestor}', true],
-    [empresaA, tecnicoA, '{tecnico}', true],
-    [empresaA, desativadoA, '{admin,gestor,tecnico}', false],
-    [empresaB, adminB, '{admin}', true],
-  ];
-  for (const vinculo of vinculos) {
-    await banco.query(
-      'insert into organizacao_usuarios (organizacao_id, usuario_id, papeis, ativo) values ($1, $2, $3, $4)',
-      vinculo,
-    );
-  }
-}
-
-function nomes(resultado: ResultadoConsulta): string[] {
-  return resultado.linhas.map((linha) => String(linha.nome)).sort();
-}
 
 beforeEach(async () => {
   banco = await criarBancoDeTeste();
-  await prepararDados();
+  await prepararEmpresasEPessoas(banco);
 });
 
 describe('organizacoes', () => {

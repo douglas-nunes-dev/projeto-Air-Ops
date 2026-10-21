@@ -1,26 +1,34 @@
 import { screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { sair } from '@/services/authService';
-import { renderizarComRotas, usuarioDeTeste } from '@/test/renderizar';
+import { listarClientes } from '@/services/clienteService';
+import { listarEquipamentos } from '@/services/equipamentoService';
+import { renderizarComRotas } from '@/test/renderizar';
+import { clienteDeTeste, equipamentoDeTeste } from '@/test/dados';
 import { Inicio } from './Inicio';
 
-vi.mock('@/services/authService', () => ({ sair: vi.fn() }));
+vi.mock('@/services/clienteService', () => ({ listarClientes: vi.fn() }));
+vi.mock('@/services/equipamentoService', () => ({ listarEquipamentos: vi.fn() }));
 
-describe('Inicio', () => {
-  it('mostra o nome do sistema, a data em português e quem está logado', () => {
-    renderizarComRotas(<Inicio />, '/', { sessao: { usuario: usuarioDeTeste } });
+describe('Painel', () => {
+  it('mostra a data em português e os totais de cadastros ativos', async () => {
+    vi.mocked(listarClientes).mockResolvedValue([
+      clienteDeTeste,
+      { ...clienteDeTeste, id: 'c2', ativo: false },
+    ]);
+    vi.mocked(listarEquipamentos).mockResolvedValue([equipamentoDeTeste]);
 
-    expect(screen.getByText('AirOps')).toBeInTheDocument();
+    renderizarComRotas(<Inicio />, '/');
+
+    expect(screen.getByRole('heading', { name: 'Painel' })).toBeInTheDocument();
     expect(screen.getByText(/ de \d{4}$/)).toBeInTheDocument();
-    expect(screen.getByText(usuarioDeTeste.email)).toBeInTheDocument();
-  });
-
-  it('o botão Sair encerra a sessão', async () => {
-    renderizarComRotas(<Inicio />, '/', { sessao: { usuario: usuarioDeTeste } });
-
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Sair' }));
-
-    expect(sair).toHaveBeenCalled();
+    // Cliente arquivado não entra na conta.
+    expect(await screen.findByRole('link', { name: /Clientes\s*1/ })).toHaveAttribute(
+      'href',
+      '/clientes',
+    );
+    expect(screen.getByRole('link', { name: /Equipamentos\s*1/ })).toHaveAttribute(
+      'href',
+      '/equipamentos',
+    );
   });
 });
