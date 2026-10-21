@@ -758,9 +758,9 @@ Decisões: **modelos de checklist prontos** por tipo de serviço; **tempo autom�
 - [x] Escritório: detalhe da OS mostra a execução (tempo, checklist, anotações, atividades, fotos) só para leitura e o atalho "Executar" para o técnico da OS
 - [x] **Aplicado na nuvem:** `npx supabase db push`, `npx supabase functions deploy alterar-status-ordem --use-api` e `npm run db:tipos`; sem login, a função responde 401
 - [x] **Revisão após o primeiro teste no celular (iPhone/Safari, pelo túnel):** diagnóstico e materiais não salvavam (o upsert exigia permissão nas colunas de chave) — corrigido com a função `salvar_anotacoes_execucao` (migration `20261022130000`) e aviso em destaque quando um salvamento falha; observação do checklist apagada ao trocar de "não conforme" para outra resposta; id das fotos gerado também fora de HTTPS; leitura da foto em Safari antigo; mensagem clara quando o aparelho não consegue guardar a foto; chamadas à Edge Function com limite de 20 s (sem sinal, "Sem conexão" em vez de "Aguarde…" para sempre)
-- [ ] **Teste no app de verdade, no celular:** iniciar uma OS como técnico, responder o checklist, tirar foto sem sinal (modo avião) e ver a foto subir quando o sinal voltar, pausar e retomar
+- [x] **Teste no app de verdade, no celular** (iPhone/Safari, pelo túnel): iniciar, checklist (9 itens), diagnóstico, atividade, foto, pausar e retomar — tudo conferido no banco. Falta só a foto em modo avião no aparelho (a fila está coberta pelos testes automáticos)
 
-> **Etapa 4 concluída no código.** A edição dos modelos de checklist pela empresa fica para a tela de Configurações. Concluir a OS (assinatura, revisão e PDF) é a etapa 5.
+> **Etapa 4 concluída e testada no celular.** A edição dos modelos de checklist pela empresa fica para a tela de Configurações. Concluir a OS (assinatura, revisão e PDF) é a etapa 5.
 
 ### Checklist antes do piloto
 
